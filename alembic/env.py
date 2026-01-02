@@ -25,9 +25,9 @@ from src.contrib.models import BaseModel
 # IMPORTANT: Import all your models here so Alembic can detect them
 # Add new imports as you create new models
 from src.users.models import UserModel
-from src.example_entity.models import ExampleEntityModel
-# from api.products.models import ProductModel
-# from api.categories.models import CategoryModel
+from src.accounts.models import AccountModel
+from src.transactions.models import TransactionModel
+
 
 # Alembic Config object
 config = context.config

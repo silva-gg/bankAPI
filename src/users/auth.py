@@ -11,13 +11,13 @@ from jose import JWTError, jwt
 from src.configs.settings import settings
 
 
-# Password hashing context using bcrypt
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+# Password hashing context using Argon2 (more secure, no length limits)
+pwd_context = CryptContext(schemes=["argon2"], deprecated="auto")
 
 
 def hash_password(password: str) -> str:
     """
-    Hash a password using bcrypt
+    Hash a password using Argon2
     
     Args:
         password: Plain text password

@@ -22,6 +22,14 @@ class UserBase(BaseSchema):
         )
     ]
     
+    user_number: Annotated[
+        str,
+        Field(
+            description='Governmental ID number',
+            example='123456789'
+        )
+    ]
+
     email: Annotated[
         EmailStr,
         Field(
@@ -48,7 +56,7 @@ class UserCreate(UserBase):
             description='Password (min 8 characters)',
             example='SecurePass123!',
             min_length=8,
-            max_length=100
+            max_length=128
         )
     ]
     
@@ -109,7 +117,7 @@ class UserUpdate(BaseSchema):
             None,
             description='New password',
             min_length=8,
-            max_length=100
+            max_length=128
         )
     ]
     

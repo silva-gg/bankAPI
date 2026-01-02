@@ -89,7 +89,8 @@ async def register(
         
         # Create user with hashed password
         user_model = UserModel(
-            id=uuid4(),
+            uuid5=UserModel.generate_uuid_from_id_number(user_in.user_number),
+            user_number=user_in.user_number,
             username=user_in.username,
             email=user_in.email,
             hashed_password=hash_password(user_in.password),
@@ -360,14 +361,14 @@ async def delete_user(
         Authorization: Bearer <admin_jwt_token>
     """
     # Prevent admin from deleting themselves
-    if user_id == admin.id:
+    if user_id == admin.uuid5:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail='Cannot delete your own account'
         )
     
     result = await db_session.execute(
-        select(UserModel).filter_by(id=user_id)
+        select(UserModel).filter_by(uuid5=user_id)
     )
     user = result.scalars().first()
     

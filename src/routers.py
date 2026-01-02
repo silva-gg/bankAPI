@@ -13,8 +13,8 @@ Instructions:
 
 from fastapi import APIRouter
 from src.users.controller import router as users_router
-from src.example_entity.controller import router as example_entity_router
-
+from src.accounts.controller import router as accounts_router
+from src.transactions.controller import router as transactions_router
 # Create main API router
 api_router = APIRouter()
 
@@ -26,15 +26,16 @@ api_router.include_router(
 )
 
 # Register entity routers
-# Pattern: api_router.include_router(your_router, prefix='/your-entities', tags=['your-entities'])
 
 api_router.include_router(
-    example_entity_router, 
-    prefix='/examples', 
-    tags=['examples']
+    accounts_router, 
+    prefix='/accounts', 
+    tags=['accounts']
 )
 
-# Add more routers here as you create new entities:
-# 
-# from api.products.controller import router as products_router
-# api_router.include_router(products_router, prefix='/products', tags=['products'])
+# Transaction router
+api_router.include_router(
+    transactions_router,
+    prefix='/transactions',
+    tags=['transactions']
+)

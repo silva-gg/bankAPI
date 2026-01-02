@@ -34,7 +34,7 @@ Error Handling:
 """
 
 from datetime import datetime
-from uuid import uuid4
+from uuid import uuid4, uuid5
 from typing import Optional
 
 from fastapi import APIRouter, Body, HTTPException, Query, status
@@ -43,14 +43,15 @@ from sqlalchemy.future import select
 from sqlalchemy.exc import IntegrityError
 from fastapi_pagination import Page, paginate
 
-from src.contrib.dependencies import DatabaseDependency, CurrentUserBasic
+from src.contrib.dependencies import DatabaseDependency, CurrentUser
+from src.users.auth import hash_password
 from .schemas import (
-    ExampleEntityIn,
-    ExampleEntityOut,
-    ExampleEntityUpdate,
-    ExampleEntityList
+    AccountIn,
+    AccountOut,
+    AccountUpdate,
+    AccountList
 )
-from .models import ExampleEntityModel
+from .models import AccountModel
 
 
 # Create router instance
@@ -61,28 +62,28 @@ router = APIRouter()
 # Note: This template uses Basic Auth for simplicity.
 # You can also use JWT auth by importing CurrentUser instead:
 # from api.contrib.dependencies import CurrentUser
-# Then use CurrentUser in your endpoints instead of CurrentUserBasic
+# Then use CurrentUser in your endpoints instead of CurrentUser
 
 
 @router.post(
     '/',
-    summary='Create a new example entity',
-    description='Creates a new example entity with the provided data (requires authentication)',
+    summary='Create a new Account',
+    description='Creates a new account with the provided data (requires authentication)',
     status_code=status.HTTP_201_CREATED,
-    response_model=ExampleEntityOut
+    response_model=AccountOut
 )
-async def create_entity(
+async def create_account(
     db_session: DatabaseDependency,
-    current_user: CurrentUserBasic,  # Requires HTTP Basic Authentication
-    entity_in: ExampleEntityIn = Body(
+    current_user: CurrentUser,  # Requires JWT Authentication
+    account_in: AccountIn = Body(
         ...,
-        description='Entity data to create'
+        description='Account data to create'
     )
-):
+) -> AccountOut:
     """
-    Create a new example entity
+    Create a new account
     
-    Requires HTTP Basic Authentication.
+    Requires JWT Authentication.
     
     Args:
         db_session: Database session (injected)
@@ -103,38 +104,42 @@ async def create_entity(
           -d '{"name": "Example Item", "value": 99.99, "is_active": true}'
     """
     try:
-        # Create output schema with UUID and timestamp
-        entity_out = ExampleEntityOut(
-            id=uuid4(),
+        # Validate user number matches authenticated user
+        loggedin_user_id = current_user.uuid5
+        
+        # Create database model (exclude password and add owner)
+        account_data = account_in.model_dump(exclude={'password'})
+        account_model = AccountModel(
+            owner=loggedin_user_id,
             created_at=datetime.utcnow(),
-            **entity_in.model_dump()
+            is_active=True,  # Set default value
+            hashed_password=hash_password(account_in.password),  # Hash the password
+            **account_data
         )
         
-        # Create database model from output schema
-        entity_model = ExampleEntityModel(**entity_out.model_dump())
-        
         # Add to database session
-        db_session.add(entity_model)
+        db_session.add(account_model)
         
         # Commit transaction
         await db_session.commit()
         
-        # Refresh to get any database-generated values
-        # await db_session.refresh(entity_model)
+        # Refresh to get database-generated values
+        await db_session.refresh(account_model)
         
-        return entity_out
+        # Convert to output schema
+        return AccountOut.model_validate(account_model)
         
     except IntegrityError as e:
         await db_session.rollback()
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail=f'Entity already exists or constraint violation: {str(e)}'
+            detail=f'Account already exists or constraint violation: {str(e)}'
         )
     except Exception as e:
         await db_session.rollback()
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f'An error occurred while creating the entity: {str(e)}'
+            detail=f'An error occurred while creating the account: {str(e)}'
         )
 
 
@@ -143,20 +148,20 @@ async def create_entity(
     summary='List all example entities',
     description='Retrieves a paginated list of all example entities with optional filtering',
     status_code=status.HTTP_200_OK,
-    response_model=Page[ExampleEntityOut],
+    response_model=Page[AccountOut],
 )
 async def get_all_entities(
     db_session: DatabaseDependency,
-    name: Optional[str] = Query(
+    owner_uuid: Optional[str] = Query(
         None,
-        description='Filter by name (case-insensitive partial match)',
-        example='example'
+        description='Filter by owner UUID (case-insensitive partial match)',
+        examples='550e8400-e29b-41d4-a716-446655440000'
     ),
     is_active: Optional[bool] = Query(
         None,
         description='Filter by active status'
     ),
-) -> Page[ExampleEntityOut]:
+) -> Page[AccountOut]:
     """
     Get all example entities with optional filters
     
@@ -166,23 +171,29 @@ async def get_all_entities(
         is_active: Optional active status filter
         
     Returns:
-        Page[ExampleEntityOut]: Paginated list of entities
+        Page[AccountOut]: Paginated list of entities
         
     Example:
         GET /examples?name=test&is_active=true&page=1&size=10
     """
     # Start with base query
-    query = select(ExampleEntityModel)
+    query = select(AccountModel)
     
     # Apply filters if provided
-    if name:
-        query = query.filter(ExampleEntityModel.name.ilike(f'%{name}%'))
+    if owner_uuid:
+        try:
+            from uuid import UUID
+            owner_uuid_obj = UUID(owner_uuid)
+            query = query.filter(AccountModel.owner == owner_uuid_obj)
+        except ValueError:
+            # Invalid UUID format, skip filter
+            pass
     
     if is_active is not None:
-        query = query.filter(ExampleEntityModel.is_active == is_active)
+        query = query.filter(AccountModel.is_active == is_active)
     
     # Add ordering
-    query = query.order_by(ExampleEntityModel.created_at.desc())
+    query = query.order_by(AccountModel.created_at.desc())
     
     # Execute query
     result = await db_session.execute(query)
@@ -190,20 +201,20 @@ async def get_all_entities(
     
     # Convert to output schemas and paginate
     return paginate([
-        ExampleEntityOut.model_validate(entity)
+        AccountOut.model_validate(entity)
         for entity in entities
     ])
 
 
 @router.get(
-    '/{entity_id}',
+    '/{account_id}',
     summary='Get example entity by ID',
     description='Retrieves a single example entity by its UUID',
     status_code=status.HTTP_200_OK,
-    response_model=ExampleEntityOut
+    response_model=AccountOut
 )
 async def get_entity_by_id(
-    entity_id: UUID4,
+    account_id: UUID4,
     db_session: DatabaseDependency
 ):
     """
@@ -224,31 +235,31 @@ async def get_entity_by_id(
     """
     # Query for entity by UUID
     result = await db_session.execute(
-        select(ExampleEntityModel).filter_by(id=entity_id)
+        select(AccountModel).filter_by(id=account_id)
     )
     entity = result.scalars().first()
     
     if not entity:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f'Entity with id {entity_id} not found'
+            detail=f'Entity with id {account_id} not found'
         )
     
-    return ExampleEntityOut.model_validate(entity)
+    return AccountOut.model_validate(entity)
 
 
 @router.patch(
-    '/{entity_id}',
+    '/{account_id}',
     summary='Update example entity',
     description='Updates an existing example entity with partial data (requires authentication)',
     status_code=status.HTTP_200_OK,
-    response_model=ExampleEntityOut
+    response_model=AccountOut
 )
 async def update_entity(
-    entity_id: UUID4,
+    account_id: UUID4,
     db_session: DatabaseDependency,
-    current_user: CurrentUserBasic,  # Requires HTTP Basic Authentication
-    entity_update: ExampleEntityUpdate = Body(
+    current_user: CurrentUser,  # Requires HTTP Basic Authentication
+    entity_update: AccountUpdate = Body(
         ...,
         description='Fields to update (all optional)'
     )
@@ -276,14 +287,14 @@ async def update_entity(
     """
     # Get existing entity
     result = await db_session.execute(
-        select(ExampleEntityModel).filter_by(id=entity_id)
+        select(AccountModel).filter_by(id=account_id)
     )
     entity = result.scalars().first()
     
     if not entity:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f'Entity with id {entity_id} not found'
+            detail=f'Entity with id {account_id} not found'
         )
     
     try:
@@ -297,7 +308,7 @@ async def update_entity(
         await db_session.commit()
         await db_session.refresh(entity)
         
-        return ExampleEntityOut.model_validate(entity)
+        return AccountOut.model_validate(entity)
         
     except IntegrityError as e:
         await db_session.rollback()
@@ -314,15 +325,15 @@ async def update_entity(
 
 
 @router.delete(
-    '/{entity_id}',
-    summary='Delete example entity',
-    description='Deletes an example entity by its UUID (requires authentication)',
+    '/{account_id}',
+    summary='Delete Account',
+    description='Deletes an account by its UUID (requires authentication)',
     status_code=status.HTTP_204_NO_CONTENT
 )
 async def delete_entity(
-    entity_id: UUID4,
+    account_id: UUID4,
     db_session: DatabaseDependency,
-    current_user: CurrentUserBasic  # Requires HTTP Basic Authentication
+    current_user: CurrentUser  # Requires JWT
 ):
     """
     Delete an example entity
@@ -343,14 +354,14 @@ async def delete_entity(
     """
     # Get existing entity
     result = await db_session.execute(
-        select(ExampleEntityModel).filter_by(id=entity_id)
+        select(AccountModel).filter_by(id=account_id)
     )
     entity = result.scalars().first()
     
     if not entity:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f'Entity with id {entity_id} not found'
+            detail=f'Entity with id {account_id} not found'
         )
     
     try:

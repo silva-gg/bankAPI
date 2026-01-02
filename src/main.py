@@ -8,15 +8,28 @@ Customize the title, description, and version according to your project.
 from fastapi import FastAPI
 from src.routers import api_router
 from fastapi_pagination import add_pagination
+from contextlib import asynccontextmanager
 
 # Create FastAPI application instance
-# Customize these parameters for your project
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """
+    Lifespan event handler for startup and shutdown
+    """
+    # Startup
+    print("🚀 bankAPI started successfully!")
+    yield
+    # Shutdown
+    print("👋 bankAPI shutting down...")
+
+
 app = FastAPI(
-    title='FastAPI Template',
-    description='A modern, asynchronous REST API template built with FastAPI',
+    title='bankAPI',
+    description='A simple banking API built with FastAPI',
     version='0.1.0',
     docs_url='/docs',  # Swagger UI
-    redoc_url='/redoc',  # ReDoc
+    redoc_url=None,  # ReDoc disabled
+    lifespan=lifespan
 )
 
 # Include all API routers
@@ -35,7 +48,7 @@ async def root():
         dict: API status and version
     """
     return {
-        'message': 'FastAPI Template is running!',
+        'message': 'bankAPI is running!',
         'version': '0.1.0',
         'docs': '/docs'
     }
@@ -52,20 +65,4 @@ async def health_check():
     return {'status': 'healthy'}
 
 
-# Optional: Add startup and shutdown events
-@app.on_event("startup")
-async def startup_event():
-    """
-    Execute on application startup
-    Add any initialization code here (e.g., database connections, cache warmup)
-    """
-    print("🚀 FastAPI Template started successfully!")
 
-
-@app.on_event("shutdown")
-async def shutdown_event():
-    """
-    Execute on application shutdown
-    Add cleanup code here (e.g., close database connections, save state)
-    """
-    print("👋 FastAPI Template shutting down...")

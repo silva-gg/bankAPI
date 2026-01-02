@@ -29,12 +29,13 @@ After creating/modifying models:
 """
 
 from datetime import datetime
-from sqlalchemy import DateTime, Integer, String, Float, Boolean, Text
+from uuid import UUID as UUIDType, uuid4
+from sqlalchemy import UUID, DateTime, ForeignKey, Integer, String, Float, Boolean, Text
 from sqlalchemy.orm import Mapped, mapped_column
 from src.contrib.models import BaseModel
+from src.contrib.models import TransactionType
 
-
-class ExampleEntityModel(BaseModel):
+class TransactionModel(BaseModel):
     """
     Example Entity Database Model
     
@@ -52,53 +53,45 @@ class ExampleEntityModel(BaseModel):
     Table name: example_entities
     """
     
-    __tablename__ = 'example_entities'
+    __tablename__ = 'transactions'
     
-    # Primary Key - Auto-incrementing integer
-    pk_id: Mapped[int] = mapped_column(
-        Integer,
+    # Primary Key - Auto-generated UUID field
+    pk_id: Mapped[UUIDType] = mapped_column(
+        UUID(as_uuid=True),
         primary_key=True,
-        autoincrement=True,
+        default=uuid4,
+        nullable=False,
+        index=True,
         comment='Primary key'
     )
-    
-    # Required string field with max length
-    name: Mapped[str] = mapped_column(
-        String(100),
-        nullable=False,
-        index=True,  # Add index for faster queries
-        comment='Entity name'
-    )
-    
-    # Optional text field (no length limit)
-    description: Mapped[str | None] = mapped_column(
-        Text,
-        nullable=True,
-        comment='Entity description'
-    )
-    
-    # Optional numeric field
-    value: Mapped[float | None] = mapped_column(
-        Float,
-        nullable=True,
-        comment='Numeric value'
-    )
-    
-    # Boolean field with default value
-    is_active: Mapped[bool] = mapped_column(
-        Boolean,
-        default=True,
-        nullable=False,
-        comment='Active status'
-    )
-    
-    # Timestamp field
+
     created_at: Mapped[datetime] = mapped_column(
         DateTime,
         default=datetime.utcnow,
         nullable=False,
         comment='Creation timestamp'
     )
+    
+    origin_account: Mapped[UUIDType] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey('accounts.id'),
+        nullable=False,
+        comment='Origin account UUID'
+    )
+
+    value: Mapped[float] = mapped_column(
+        Float,
+        nullable=False,
+        comment='Transaction value'
+    )
+
+    transaction_type: Mapped[TransactionType] = mapped_column(
+        String(50),
+        nullable=False,
+        comment='Type of transaction (e.g., deposit, withdrawal)'
+    )
+
+
     
     # Examples of other field types:
     
@@ -124,4 +117,4 @@ class ExampleEntityModel(BaseModel):
     
     def __repr__(self) -> str:
         """String representation of the model"""
-        return f"<ExampleEntity(id={self.pk_id}, name='{self.name}')>"
+        return f"<TransactionModel(id={self.pk_id}, origin_account={self.origin_account})>"

@@ -37,8 +37,13 @@ class Settings(BaseSettings):
     
     # Application Configuration
     APP_NAME: str = Field(
-        default='FastAPI Template',
+        default='bankAPI',
         description='Application name'
+    )
+    
+    APP_VERSION: str = Field(
+        default='0.1.0',
+        description='Application version'
     )
     
     DEBUG: bool = Field(
@@ -76,3 +81,4 @@ class Settings(BaseSettings):
 # Create settings instance
 # This will automatically load values from environment variables
 settings = Settings()
+

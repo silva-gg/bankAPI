@@ -5,11 +5,15 @@ This file defines the database schema for users and authentication.
 """
 
 from datetime import datetime
+from uuid import UUID as UUIDType, uuid5,  NAMESPACE_DNS
 from sqlalchemy import DateTime, Integer, String, Boolean
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 from src.contrib.models import BaseModel
+from sqlalchemy.dialects.postgresql import UUID
+from typing import List, TYPE_CHECKING
 
-
+if TYPE_CHECKING:
+    from src.accounts.models import AccountModel
 class UserModel(BaseModel):
     """
     User Model for Authentication
@@ -17,7 +21,7 @@ class UserModel(BaseModel):
     Stores user credentials and authentication information.
     
     Attributes:
-        pk_id: Primary key
+        uuid5: Unique user identifier - Primary Key
         username: Unique username
         email: User email address
         hashed_password: Bcrypt hashed password
@@ -27,12 +31,13 @@ class UserModel(BaseModel):
     """
     
     __tablename__ = 'users'
-    
-    pk_id: Mapped[int] = mapped_column(
-        Integer,
+
+    uuid5: Mapped[UUIDType] = mapped_column(
+        UUID(as_uuid=True),
         primary_key=True,
-        autoincrement=True,
-        comment='Primary key'
+        nullable=False,
+        index=True,
+        comment='uuid5 unique user identifier'
     )
     
     username: Mapped[str] = mapped_column(
@@ -43,6 +48,13 @@ class UserModel(BaseModel):
         comment='Unique username'
     )
     
+    user_number: Mapped[str] = mapped_column(
+        String(30),
+        unique=True,
+        nullable=False,
+        comment='Governmental ID number'
+    )
+
     email: Mapped[str] = mapped_column(
         String(100),
         unique=True,
@@ -54,7 +66,7 @@ class UserModel(BaseModel):
     hashed_password: Mapped[str] = mapped_column(
         String(255),
         nullable=False,
-        comment='Hashed password'
+        comment='Hashed user password'
     )
     
     is_active: Mapped[bool] = mapped_column(
@@ -77,6 +89,16 @@ class UserModel(BaseModel):
         nullable=False,
         comment='Account creation timestamp'
     )
+
+    accounts: Mapped[List['AccountModel']] = relationship(
+        back_populates="owner_user",
+        lazy='selectin'
+    )
+
+    @classmethod
+    def generate_uuid_from_id_number(cls, id_number: int) -> UUIDType:
+        """Generate deterministic UUID v5 from governmental ID number"""
+        return uuid5(NAMESPACE_DNS, str(id_number))
     
     def __repr__(self) -> str:
-        return f"<User(id={self.pk_id}, username='{self.username}', email='{self.email}')>"
+        return f"<User(id={self.uuid5}, username='{self.username}', email='{self.email}')>"
