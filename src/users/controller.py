@@ -4,12 +4,12 @@ User Authentication Controller
 Provides endpoints for user registration, login, and management.
 """
 
-from datetime import datetime, timedelta
-from uuid import uuid4
+from datetime import datetime, timedelta, timezone
+from uuid import uuid5
 from typing import Optional
 
 from fastapi import APIRouter, Body, HTTPException, Query, status
-from pydantic import UUID4
+from pydantic import UUID5
 from sqlalchemy.future import select
 from sqlalchemy.exc import IntegrityError
 from fastapi_pagination import Page, paginate
@@ -33,7 +33,7 @@ router = APIRouter()
 @router.post(
     '/register',
     summary='Register a new user',
-    description='Create a new user account with username, email, and password',
+    description='Create a new user account with user number, email, and password',
     status_code=status.HTTP_201_CREATED,
     response_model=UserOut
 )
@@ -67,14 +67,14 @@ async def register(
         }
     """
     try:
-        # Check if username already exists
+        # Check if user number already exists
         result = await db_session.execute(
-            select(UserModel).filter_by(username=user_in.username)
+            select(UserModel).filter_by(user_number=user_in.user_number)
         )
         if result.scalars().first():
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
-                detail='Username already exists'
+                detail='User number already exists'
             )
         
         # Check if email already exists
@@ -91,12 +91,12 @@ async def register(
         user_model = UserModel(
             uuid5=UserModel.generate_uuid_from_id_number(user_in.user_number),
             user_number=user_in.user_number,
-            username=user_in.username,
+            user_fullname=user_in.user_fullname,
             email=user_in.email,
             hashed_password=hash_password(user_in.password),
             is_active=True,
             is_superuser=False,
-            created_at=datetime.utcnow()
+            created_at=datetime.now(timezone.utc)
         )
         
         db_session.add(user_model)
@@ -140,7 +140,7 @@ async def login(
     
     Args:
         db_session: Database session (injected)
-        credentials: Username/email and password
+        credentials: User number and password
         
     Returns:
         Token: JWT access token
@@ -151,7 +151,7 @@ async def login(
     Example request:
         POST /auth/login
         {
-            "username": "johndoe",
+            "user_number": "123456789",
             "password": "SecurePass123!"
         }
         
@@ -164,8 +164,7 @@ async def login(
     # Find user by username or email
     result = await db_session.execute(
         select(UserModel).filter(
-            (UserModel.username == credentials.username) |
-            (UserModel.email == credentials.username)
+            (UserModel.user_number == credentials.user_number)
         )
     )
     user = result.scalars().first()
@@ -188,7 +187,7 @@ async def login(
     # Create access token
     access_token_expires = timedelta(days=settings.ACCESS_TOKEN_EXPIRE_DAYS)
     access_token = create_access_token(
-        data={"sub": user.username},
+        data={"sub": user.user_number},
         expires_delta=access_token_expires
     )
     
@@ -340,7 +339,7 @@ async def list_users(
     status_code=status.HTTP_204_NO_CONTENT
 )
 async def delete_user(
-    user_id: UUID4,
+    user_id: UUID5,
     db_session: DatabaseDependency,
     admin: RequireAdmin
 ):

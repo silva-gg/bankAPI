@@ -42,8 +42,8 @@ from pydantic import UUID4
 from sqlalchemy.future import select
 from sqlalchemy.exc import IntegrityError
 from fastapi_pagination import Page, paginate
-
-from src.contrib.dependencies import DatabaseDependency, CurrentUser
+from src.contrib.models import AccountType
+from src.contrib.dependencies import DatabaseDependency, CurrentUser, RequireAdmin
 from src.users.auth import hash_password
 from .schemas import (
     AccountIn,
@@ -144,14 +144,74 @@ async def create_account(
 
 
 @router.get(
+    '/me',
+    summary='List all logged user\'s accounts',
+    description='Retrieves a paginated list of all accounts owned by the logged-in user with optional filtering',
+    status_code=status.HTTP_200_OK,
+    response_model=Page[AccountList],
+)
+async def get_all_my_accounts(
+    db_session: DatabaseDependency,
+    current_user: CurrentUser,
+    is_active: Optional[bool] = Query(
+        None,
+        description='Filter by active status'
+    ),
+    account_type: Optional[AccountType] = Query(
+        None,
+        description='Filter by account type (exact match)',
+        examples='savings'
+    )
+
+) -> Page[AccountList]:
+    """
+    Get all example entities with optional filters
+    
+    Args:
+        db_session: Database session (injected)
+        name: Optional name filter (partial match)
+        is_active: Optional active status filter
+        
+    Returns:
+        Page[AccountOut]: Paginated list of entities
+        
+    Example:
+        GET /examples?name=test&is_active=true&page=1&size=10
+    """
+    # Start with base query
+    query = select(AccountModel).where(AccountModel.owner == current_user.uuid5)
+    
+    # Apply filters if provided
+    
+    if is_active is not None:
+        query = query.filter(AccountModel.is_active == is_active)
+    
+    if account_type:
+        query = query.filter(AccountModel.account_type == account_type)
+    # Add ordering
+    query = query.order_by(AccountModel.created_at.desc())
+    
+    # Execute query
+    result = await db_session.execute(query)
+    entities = result.scalars().all()
+    
+    # Convert to output schemas and paginate
+    return paginate([
+        AccountList.model_validate(entity)
+        for entity in entities
+    ])
+
+
+@router.get(
     '/',
-    summary='List all example entities',
-    description='Retrieves a paginated list of all example entities with optional filtering',
+    summary='List all accounts (Admin only)',
+    description='Retrieves a paginated list of all accounts with optional single filtering - choose one filter at a time',
     status_code=status.HTTP_200_OK,
     response_model=Page[AccountOut],
 )
-async def get_all_entities(
+async def get_all_accounts(
     db_session: DatabaseDependency,
+    admin: RequireAdmin,
     owner_uuid: Optional[str] = Query(
         None,
         description='Filter by owner UUID (case-insensitive partial match)',
@@ -161,6 +221,12 @@ async def get_all_entities(
         None,
         description='Filter by active status'
     ),
+    owner_number: Optional[str] = Query(
+        None,
+        description='Filter by owner user number - Governmental ID number (exact match)',
+        examples='123456789'
+    )
+
 ) -> Page[AccountOut]:
     """
     Get all example entities with optional filters
@@ -192,6 +258,11 @@ async def get_all_entities(
     if is_active is not None:
         query = query.filter(AccountModel.is_active == is_active)
     
+    if owner_number:
+        from src.users.models import UserModel
+        query = query.join(UserModel, AccountModel.owner == UserModel.uuid5).filter(
+            UserModel.user_number == owner_number
+        )
     # Add ordering
     query = query.order_by(AccountModel.created_at.desc())
     
@@ -205,16 +276,16 @@ async def get_all_entities(
         for entity in entities
     ])
 
-
 @router.get(
     '/{account_id}',
-    summary='Get example entity by ID',
-    description='Retrieves a single example entity by its UUID',
+    summary='Get account by ID (Admin only)',
+    description='Retrieves any single account by its UUID',
     status_code=status.HTTP_200_OK,
     response_model=AccountOut
 )
-async def get_entity_by_id(
+async def get_account_by_id(
     account_id: UUID4,
+    admin: RequireAdmin,  # Requires Admin JWT Authentication
     db_session: DatabaseDependency
 ):
     """
@@ -250,15 +321,15 @@ async def get_entity_by_id(
 
 @router.patch(
     '/{account_id}',
-    summary='Update example entity',
-    description='Updates an existing example entity with partial data (requires authentication)',
+    summary='Update account (Admin only)',
+    description='Updates an existing account with partial data (requires authentication)',
     status_code=status.HTTP_200_OK,
     response_model=AccountOut
 )
-async def update_entity(
+async def update_account(
     account_id: UUID4,
     db_session: DatabaseDependency,
-    current_user: CurrentUser,  # Requires HTTP Basic Authentication
+    admin: RequireAdmin,  # Requires Admin JWT Authentication
     entity_update: AccountUpdate = Body(
         ...,
         description='Fields to update (all optional)'
@@ -330,10 +401,10 @@ async def update_entity(
     description='Deletes an account by its UUID (requires authentication)',
     status_code=status.HTTP_204_NO_CONTENT
 )
-async def delete_entity(
+async def delete_account(
     account_id: UUID4,
     db_session: DatabaseDependency,
-    current_user: CurrentUser  # Requires JWT
+    admin: RequireAdmin  # Requires Admin JWT Authentication
 ):
     """
     Delete an example entity

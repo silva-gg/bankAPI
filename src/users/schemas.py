@@ -12,16 +12,6 @@ from src.contrib.schemas import BaseSchema, OutMixin
 class UserBase(BaseSchema):
     """Base user schema with common fields"""
     
-    username: Annotated[
-        str,
-        Field(
-            description='Username',
-            example='johndoe',
-            max_length=50,
-            min_length=3
-        )
-    ]
-    
     user_number: Annotated[
         str,
         Field(
@@ -37,14 +27,28 @@ class UserBase(BaseSchema):
             example='john@example.com'
         )
     ]
+
+    user_fullname: Annotated[
+        str,
+        Field(
+            description='Full name of the user',
+            example='John Doe',
+            max_length=80
+        )
+    ]
     
-    @field_validator('username')
+    @field_validator('user_fullname')
     @classmethod
-    def username_alphanumeric(cls, v: str) -> str:
-        """Validate username is alphanumeric"""
-        if not v.replace('_', '').replace('-', '').replace('.', '').isalnum():
-            raise ValueError('Username must be alphanumeric (can include _ and -)')
-        return v.lower()
+    def validate_fullname(cls, v: str) -> str:
+        """Validate full name format"""
+        v = v.strip()
+        if not v:
+            raise ValueError('Full name cannot be empty')
+        if not all(c.isalpha() or c.isspace() or c in "'-." for c in v):
+            raise ValueError('Full name can only contain letters, spaces, hyphens, apostrophes, and periods')
+        if len(v.split()) < 2:
+            raise ValueError('Please provide both first and last name')
+        return v.title()
 
 
 class UserCreate(UserBase):
@@ -76,11 +80,11 @@ class UserCreate(UserBase):
 class UserLogin(BaseSchema):
     """Schema for user login"""
     
-    username: Annotated[
+    user_number: Annotated[
         str,
         Field(
-            description='Username or email',
-            example='johndoe'
+            description='Governmental ID number',
+            example='123456789'
         )
     ]
     
@@ -111,6 +115,15 @@ class UserUpdate(BaseSchema):
         )
     ]
     
+    user_fullname: Annotated[
+        Optional[str],
+        Field(
+            None,
+            description='Full name of the user',
+            max_length=80
+        )
+    ]
+
     password: Annotated[
         Optional[str],
         Field(

@@ -40,12 +40,11 @@ class UserModel(BaseModel):
         comment='uuid5 unique user identifier'
     )
     
-    username: Mapped[str] = mapped_column(
-        String(50),
-        unique=True,
+    user_fullname: Mapped[str] = mapped_column(
+        String(80),
         nullable=False,
-        index=True,
-        comment='Unique username'
+        default='John Doe',
+        comment='User full name'
     )
     
     user_number: Mapped[str] = mapped_column(
@@ -101,4 +100,4 @@ class UserModel(BaseModel):
         return uuid5(NAMESPACE_DNS, str(id_number))
     
     def __repr__(self) -> str:
-        return f"<User(id={self.uuid5}, username='{self.username}', email='{self.email}')>"
+        return f"<User(id={self.uuid5}, fullname='{self.user_fullname}', email='{self.email}')>"

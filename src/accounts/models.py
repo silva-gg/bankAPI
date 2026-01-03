@@ -1,8 +1,8 @@
 from datetime import datetime
-from sqlalchemy import UUID, DateTime, ForeignKey, Integer, String, Float, Boolean, Text
+from sqlalchemy import UUID, DateTime, ForeignKey, Integer, String, Float, Boolean, Enum
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from src.contrib.models import BaseModel, AccountType
-from uuid import UUID as UUIDType, uuid4, uuid5
+from uuid import UUID as UUIDType
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -49,7 +49,7 @@ class AccountModel(BaseModel):
         lazy='selectin'
     )
     account_type: Mapped[AccountType] = mapped_column(
-        String(50),
+        Enum(AccountType, values_callable=lambda x: [e.value for e in x]),
         nullable=False,
         comment='Account type'
     )

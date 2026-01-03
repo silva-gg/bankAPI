@@ -38,6 +38,7 @@ from typing import Annotated, Optional
 from pydantic import UUID5, Field, PositiveFloat, constr
 from src.users.schemas import UserOut
 from src.contrib.schemas import BaseSchema, OutMixin
+from src.contrib.models import AccountType
 
 
 class Account(BaseSchema):
@@ -62,7 +63,7 @@ class Account(BaseSchema):
 
 
     account_type: Annotated[
-        str,
+        AccountType,
         Field(
             description='Type of account (e.g., savings, checking)',
             example='savings',
@@ -190,7 +191,7 @@ class AccountList(BaseSchema):
     ]
 
     account_type: Annotated[
-        str,
+        AccountType,
         Field(
             description='Type of account',
             example='savings'

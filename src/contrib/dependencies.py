@@ -50,13 +50,13 @@ async def get_current_user(
     Usage:
         @router.get('/protected')
         async def protected_route(current_user: CurrentUser):
-            return {"user": current_user.username}
+            return {"user": current_user.user_number}
     """
     token = credentials.credentials
     
     # Decode token
-    username = decode_access_token(token)
-    if username is None:
+    user_number = decode_access_token(token)
+    if user_number is None:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail='Invalid or expired token',
@@ -65,7 +65,7 @@ async def get_current_user(
     
     # Get user from database
     result = await db_session.execute(
-        select(UserModel).filter_by(username=username)
+        select(UserModel).filter_by(user_number=user_number)
     )
     user = result.scalars().first()
     
