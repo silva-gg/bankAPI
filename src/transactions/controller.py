@@ -87,10 +87,12 @@ async def register_transaction(
         # Set necessary values to validate the transaction
         value = transaction_in.value
         transaction_type = transaction_in.transaction_type
-        account_model = await db_session.get(
-            AccountModel,
-            transaction_in.origin_account_number
+        
+        # Query account by account_number (not primary key)
+        result = await db_session.execute(
+            select(AccountModel).filter(AccountModel.account_number == transaction_in.origin_account_number)
         )
+        account_model = result.scalar_one_or_none()
         
         # Check if account exists before accessing attributes
         if not account_model:
@@ -178,10 +180,12 @@ async def register_transaction(
                     detail='Insufficient funds for this transfer'
                 )
             
-            destination_account_model = await db_session.get(
-                AccountModel,
-                transaction_in.destination_account_number
+            # Query destination account by account_number
+            dest_result = await db_session.execute(
+                select(AccountModel).filter(AccountModel.account_number == transaction_in.destination_account_number)
             )
+            destination_account_model = dest_result.scalar_one_or_none()
+            
             if not destination_account_model:
                 await db_session.rollback()
                 raise HTTPException(
@@ -329,7 +333,7 @@ async def get_all_transactions(
 
 
 @router.get(
-    '/{entity_id}',
+    '/{transaction_id}',
     summary='Get transaction by ID',
     description='Retrieves a single transaction by its UUID',
     status_code=status.HTTP_200_OK,
@@ -340,14 +344,14 @@ async def get_transaction_by_id(
     db_session: DatabaseDependency
 ):
     """
-    Get a single example entity by ID
+    Get a single transaction by ID
     
     Args:
-        entity_id: UUID of the entity
+        transaction_id: UUID of the transaction
         db_session: Database session (injected)
         
     Returns:
-        ExampleEntityOut: Entity data
+        TransactionOut: Transaction data
         
     Raises:
         HTTPException 404: If entity not found
