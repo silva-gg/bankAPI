@@ -20,10 +20,16 @@ This directory contains comprehensive integration tests for the BankAPI applicat
 
 ### Setup
 
-1. Install dependencies:
+1. Install dependencies using Poetry:
 ```bash
-pip install -r requirements.txt
-pip install pytest pytest-asyncio pytest-cov httpx
+# Install Poetry if not already installed
+curl -sSL https://install.python-poetry.org | python3 -
+
+# Install all dependencies including dev dependencies
+poetry install --with dev
+
+# Activate the virtual environment (optional, commands can also use 'poetry run')
+poetry shell
 ```
 
 2. Set up test database:
@@ -46,20 +52,27 @@ export ACCESS_TOKEN_EXPIRE_DAYS="30"
 ### Run Tests
 
 ```bash
-# Run all tests
-pytest
+# Run all tests (using poetry)
+poetry run pytest
 
 # Run with coverage
-pytest --cov=src --cov-report=term-missing
+poetry run pytest --cov=src --cov-report=term-missing
 
 # Run specific test file
-pytest tests/test_auth.py -v
+poetry run pytest tests/test_auth.py -v
 
 # Run specific test class
-pytest tests/test_auth.py::TestUserRegistration -v
+poetry run pytest tests/test_auth.py::TestUserRegistration -v
 
 # Run specific test
 pytest tests/test_auth.py::TestUserRegistration::test_register_user_success -v
+```
+
+Alternatively, if you're inside the Poetry shell (after running `poetry shell`):
+```bash
+# All commands can be run without 'poetry run' prefix
+pytest
+pytest --cov=src --cov-report=html
 ```
 
 ## Test Coverage

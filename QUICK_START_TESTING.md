@@ -5,11 +5,11 @@ This is a quick reference for running tests. For detailed information, see `test
 ## Installation
 
 ```bash
-# Install dependencies
-pip install -r requirements.txt
+# Install Poetry if not already installed
+curl -sSL https://install.python-poetry.org | python3 -
 
-# Install test dependencies
-pip install pytest pytest-asyncio pytest-cov httpx email-validator
+# Install dependencies with dev packages
+poetry install --with dev
 ```
 
 ## Setup Database
@@ -46,35 +46,36 @@ ACCESS_TOKEN_EXPIRE_DAYS=30
 
 ```bash
 # All tests
-pytest
+poetry run pytest
 
 # With coverage
-pytest --cov=src --cov-report=html
+poetry run pytest --cov=src --cov-report=html
 
 # Specific file
-pytest tests/test_auth.py -v
+poetry run pytest tests/test_auth.py -v
 
-# Watch mode (requires pytest-watch)
-ptw
+# Or activate Poetry shell first
+poetry shell
+pytest  # Now you can run without 'poetry run' prefix
 ```
 
 ## Common Commands
 
 ```bash
 # Run only fast tests
-pytest -m "not slow"
+poetry run pytest -m "not slow"
 
 # Run with detailed output
-pytest -vv
+poetry run pytest -vv
 
 # Stop on first failure
-pytest -x
+poetry run pytest -x
 
 # Run last failed tests
-pytest --lf
+poetry run pytest --lf
 
 # Collect tests without running
-pytest --collect-only
+poetry run pytest --collect-only
 ```
 
 ## GitHub Actions
@@ -114,8 +115,8 @@ psql -l | grep bankapi_test
 
 ### Import Errors
 ```bash
-# Reinstall dependencies
-pip install -r requirements.txt --force-reinstall
+# Reinstall dependencies using Poetry
+poetry install --with dev
 ```
 
 ### Tests Hang

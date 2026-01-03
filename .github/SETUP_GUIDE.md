@@ -78,8 +78,10 @@ You can manually trigger the workflow:
 ### Test Job
 
 - Sets up Python 3.11
+- Installs Poetry package manager
+- Caches dependencies for faster builds
 - Creates PostgreSQL test database
-- Installs dependencies
+- Installs dependencies with Poetry
 - Runs database migrations
 - Executes linting with Ruff
 - Runs all tests with coverage
