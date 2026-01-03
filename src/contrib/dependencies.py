@@ -1,15 +1,7 @@
 """
 Shared Dependencies
 
-This module provides FastAPI dependencies used across the application.
-Dependencies are reusable components that can be injected into route handlers.
-
-Instructions:
-1. Use DatabaseDependency in your routes to get a database session
-2. Use CurrentUser to get the authenticated user (JWT Bearer token)
-3. Use CurrentUserBasic to get the authenticated user (HTTP Basic Auth)
-4. Use RequireAdmin to ensure user has admin privileges (JWT)
-5. Use RequireAdminBasic for admin with Basic Auth
+Provides FastAPI dependencies used across the application.
 """
 
 from typing import Annotated
@@ -23,10 +15,8 @@ from src.users.models import UserModel
 from src.users.auth import decode_access_token
 
 
-# Type alias for database session dependency
 DatabaseDependency = Annotated[AsyncSession, Depends(get_session)]
 
-# HTTP Bearer token security (JWT)
 security = HTTPBearer()
 
 
@@ -46,11 +36,6 @@ async def get_current_user(
         
     Raises:
         HTTPException: If token is invalid or user not found
-        
-    Usage:
-        @router.get('/protected')
-        async def protected_route(current_user: CurrentUser):
-            return {"user": current_user.user_number}
     """
     token = credentials.credentials
     
@@ -85,7 +70,6 @@ async def get_current_user(
     return user
 
 
-# Type alias for current user dependency
 CurrentUser = Annotated[UserModel, Depends(get_current_user)]
 
 
@@ -101,12 +85,6 @@ async def require_admin(current_user: CurrentUser) -> UserModel:
         
     Raises:
         HTTPException: If user is not an admin
-        
-    Usage:
-        @router.delete('/admin/users/{id}')
-        async def delete_user(admin: RequireAdmin, user_id: UUID4):
-            # Only admins can access this endpoint
-            pass
     """
     if not current_user.is_superuser:
         raise HTTPException(
@@ -116,13 +94,9 @@ async def require_admin(current_user: CurrentUser) -> UserModel:
     return current_user
 
 
-# Type alias for admin user dependency
 RequireAdmin = Annotated[UserModel, Depends(require_admin)]
 
-
-# Import Basic Auth dependencies
 from src.users.basic_auth import get_current_user_basic, require_admin_basic
 
-# Type aliases for Basic Auth
 CurrentUserBasic = Annotated[UserModel, Depends(get_current_user_basic)]
 RequireAdminBasic = Annotated[UserModel, Depends(require_admin_basic)]
