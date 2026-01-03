@@ -1,12 +1,12 @@
 # Authentication Guide
 
-This guide explains how to use the built-in authentication system.
+This guide explains how to use the authentication system in bankAPI.
 
 ## Overview
 
-The template includes a complete JWT-based authentication system with:
-- User registration with password validation
-- Secure login with bcrypt password hashing
+The API includes JWT-based authentication with:
+- User registration with government ID numbers
+- Secure login with Argon2 password hashing
 - JWT token generation and validation
 - Protected routes using dependencies
 - Admin-only routes
@@ -20,7 +20,8 @@ The template includes a complete JWT-based authentication system with:
 
 ```json
 {
-  "username": "johndoe",
+  "user_number": "123456789",
+  "user_fullname": "John Doe",
   "email": "john@example.com",
   "password": "SecurePass123!"
 }
@@ -35,12 +36,13 @@ The template includes a complete JWT-based authentication system with:
 **Response:**
 ```json
 {
-  "id": "550e8400-e29b-41d4-a716-446655440000",
-  "username": "johndoe",
+  "uuid5": "550e8400-e29b-41d4-a716-446655440000",
+  "user_number": "123456789",
+  "user_fullname": "John Doe",
   "email": "john@example.com",
   "is_active": true,
   "is_superuser": false,
-  "created_at": "2025-12-28T10:00:00"
+  "created_at": "2026-01-03T10:00:00Z"
 }
 ```
 
@@ -50,12 +52,10 @@ The template includes a complete JWT-based authentication system with:
 
 ```json
 {
-  "username": "johndoe",
+  "user_number": "123456789",
   "password": "SecurePass123!"
 }
 ```
-
-**Note:** You can use either username or email in the `username` field.
 
 **Response:**
 ```json
@@ -94,11 +94,11 @@ curl -X GET "http://localhost:8000/auth/me" \
 Any route that needs authentication uses the `CurrentUser` dependency:
 
 ```python
-from api.contrib.dependencies import CurrentUser
+from src.contrib.dependencies import CurrentUser
 
 @router.get('/profile')
 async def get_profile(current_user: CurrentUser):
-    return {"user": current_user.username}
+    return {"user": current_user.user_number}
 ```
 
 ### Require Admin
@@ -106,7 +106,7 @@ async def get_profile(current_user: CurrentUser):
 For admin-only routes, use the `RequireAdmin` dependency:
 
 ```python
-from api.contrib.dependencies import RequireAdmin
+from src.contrib.dependencies import RequireAdmin
 
 @router.delete('/admin/delete-all')
 async def dangerous_operation(admin: RequireAdmin):
@@ -143,7 +143,6 @@ All fields are optional. Password will be hashed automatically.
 **Authentication:** Required (Admin)
 
 Query parameters:
-- `username` - Filter by username
 - `email` - Filter by email  
 - `is_active` - Filter by active status
 - `page` - Page number
@@ -160,10 +159,10 @@ Deletes a user by UUID. Admins cannot delete themselves.
 
 ### Password Hashing
 
-Passwords are hashed using bcrypt before storage:
+Passwords are hashed using Argon2 (more secure than bcrypt) before storage:
 
 ```python
-from api.users.auth import hash_password
+from src.users.auth import hash_password
 
 hashed = hash_password("MyPassword123")
 # Stored in database
@@ -174,13 +173,13 @@ hashed = hash_password("MyPassword123")
 JWT tokens are created with user information:
 
 ```python
-from api.users.auth import create_access_token
+from src.users.auth import create_access_token
 
-token = create_access_token({"sub": "johndoe"})
+token = create_access_token({"sub": "123456789"})
 ```
 
 Token contains:
-- `sub`: Username
+- `sub`: User number
 - `exp`: Expiration timestamp
 
 ### Token Validation
@@ -189,7 +188,7 @@ When a request arrives with a token:
 
 1. Extract token from Authorization header
 2. Decode and validate JWT
-3. Extract username from token
+3. Extract user number from token
 4. Load user from database
 5. Verify user is active
 6. Inject user into route handler
@@ -231,7 +230,7 @@ When a request arrives with a token:
 Manually update the database:
 
 ```sql
-UPDATE users SET is_superuser = true WHERE username = 'johndoe';
+UPDATE users SET is_superuser = true WHERE user_number = '123456789';
 ```
 
 ### Option 2: In Code
@@ -241,22 +240,22 @@ Create a setup script:
 ```python
 # create_admin.py
 import asyncio
-from api.configs.database import async_session
-from api.users.models import UserModel
-from api.users.auth import hash_password
-from uuid import uuid4
-from datetime import datetime
+from src.configs.database import async_session
+from src.users.models import UserModel
+from src.users.auth import hash_password
+from datetime import datetime, timezone
 
 async def create_admin():
     async with async_session() as session:
         admin = UserModel(
-            id=uuid4(),
-            username="admin",
+            uuid5=UserModel.generate_uuid_from_id_number("999999999"),
+            user_number="999999999",
+            user_fullname="Admin User",
             email="admin@example.com",
             hashed_password=hash_password("AdminPass123!"),
             is_active=True,
             is_superuser=True,
-            created_at=datetime.utcnow()
+            created_at=datetime.now(timezone.utc)
         )
         session.add(admin)
         await session.commit()
@@ -301,7 +300,8 @@ Authorization: Bearer eyJhbGc...
 curl -X POST "http://localhost:8000/auth/register" \
   -H "Content-Type: application/json" \
   -d '{
-    "username": "alice",
+    "user_number": "123456789",
+    "user_fullname": "Alice Smith",
     "email": "alice@example.com",
     "password": "SecurePass123!"
   }'
@@ -310,7 +310,7 @@ curl -X POST "http://localhost:8000/auth/register" \
 TOKEN=$(curl -X POST "http://localhost:8000/auth/login" \
   -H "Content-Type: application/json" \
   -d '{
-    "username": "alice",
+    "user_number": "123456789",
     "password": "SecurePass123!"
   }' | jq -r '.access_token')
 
@@ -318,14 +318,13 @@ TOKEN=$(curl -X POST "http://localhost:8000/auth/login" \
 curl -X GET "http://localhost:8000/auth/me" \
   -H "Authorization: Bearer $TOKEN"
 
-# 4. Create protected resource
-curl -X POST "http://localhost:8000/examples" \
+# 4. Create an account
+curl -X POST "http://localhost:8000/accounts" \
   -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
-    "name": "My Item",
-    "value": 99.99,
-    "is_active": true
+    "account_type": "savings",
+    "password": "AccountPass123!"
   }'
 ```
 
@@ -340,7 +339,8 @@ BASE_URL = "http://localhost:8000"
 response = httpx.post(
     f"{BASE_URL}/auth/register",
     json={
-        "username": "bob",
+        "user_number": "987654321",
+        "user_fullname": "Bob Johnson",
         "email": "bob@example.com",
         "password": "SecurePass123!"
     }
@@ -351,7 +351,7 @@ user = response.json()
 response = httpx.post(
     f"{BASE_URL}/auth/login",
     json={
-        "username": "bob",
+        "user_number": "987654321",
         "password": "SecurePass123!"
     }
 )
@@ -367,7 +367,7 @@ print(response.json())
 
 ### Change Token Expiration
 
-In `.env`:
+In `.env` or environment variables:
 ```env
 ACCESS_TOKEN_EXPIRE_DAYS=7
 ```
@@ -381,14 +381,14 @@ ALGORITHM=HS512
 
 ### Add More User Fields
 
-1. Add fields to `UserModel` in `api/users/models.py`
-2. Add fields to `UserBase` schema in `api/users/schemas.py`
+1. Add fields to `UserModel` in `src/users/models.py`
+2. Add fields to `UserBase` schema in `src/users/schemas.py`
 3. Create migration: `alembic revision --autogenerate -m "Add user fields"`
 4. Apply: `alembic upgrade head`
 
 ### Custom Password Validation
 
-Edit the `password_strength` validator in `api/users/schemas.py`:
+Edit the `password_strength` validator in `src/users/schemas.py`:
 
 ```python
 @field_validator('password')

@@ -1,36 +1,7 @@
 """
-Example Entity API Controller
+Transaction API Controller
 
-This file defines the API endpoints (routes) for the example entity.
-It implements CRUD operations: Create, Read, Update, Delete.
-
-Instructions for creating your own controller:
-1. Import necessary modules and your schemas/models
-2. Create a router instance
-3. Implement endpoints following REST conventions:
-   - POST /   : Create new entity
-   - GET /    : List all entities (with pagination)
-   - GET /{id}: Get single entity by ID
-   - PATCH /{id}: Update entity
-   - DELETE /{id}: Delete entity
-4. Use proper HTTP status codes
-5. Handle exceptions appropriately
-6. Add query parameters for filtering
-7. Document endpoints with summary and description
-
-HTTP Status Codes:
-- 200 OK: Successful GET request
-- 201 Created: Successful POST request
-- 204 No Content: Successful DELETE request
-- 400 Bad Request: Invalid input
-- 404 Not Found: Resource not found
-- 409 Conflict: Duplicate resource
-- 500 Internal Server Error: Server error
-
-Error Handling:
-- Use HTTPException for expected errors
-- Catch IntegrityError for database constraint violations
-- Log unexpected errors
+Provides endpoints for managing bank transactions including deposits and withdrawals.
 """
 
 from datetime import datetime, timezone
@@ -55,15 +26,7 @@ from .schemas import (
 from .models import TransactionModel
 
 
-# Create router instance
-# This will be registered in api/routers.py
 router = APIRouter()
-
-
-# Note: This template uses Basic Auth for simplicity.
-# You can also use JWT auth by importing CurrentUser instead:
-# from api.contrib.dependencies import CurrentUser
-# Then use CurrentUser in your endpoints instead of CurrentUser
 
 
 @router.post(
@@ -82,27 +45,22 @@ async def register_transaction(
     )
 ):
     """
-    Create a new example entity
-    
-    Requires HTTP Basic Authentication.
+    Register a new transaction (deposit or withdrawal)
     
     Args:
         db_session: Database session (injected)
         current_user: Current authenticated user (injected)
-        entity_in: Input data for the new entity
+        transaction_in: Transaction data including account, value, and type
         
     Returns:
-        ExampleEntityOut: Created entity with id and created_at
+        TransactionOut: Created transaction information
         
     Raises:
         HTTPException 401: If authentication fails
-        HTTPException 409: If entity already exists (duplicate)
+        HTTPException 403: If user doesn't own the account
+        HTTPException 404: If account not found
+        HTTPException 400: If withdrawal limits exceeded or insufficient balance
         HTTPException 500: If database error occurs
-        
-    Example with curl:
-        curl -u username:password -X POST http://localhost:8000/examples \
-          -H "Content-Type: application/json" \
-          -d '{"name": "Example Item", "value": 99.99, "is_active": true}'
     """
     try:
         # Create output schema with UUID and timestamp

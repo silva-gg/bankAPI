@@ -1,36 +1,7 @@
 """
-Example Entity Pydantic Schemas
+Account Pydantic Schemas
 
-This file defines the data validation and serialization schemas using Pydantic.
-
-Instructions for creating your own schemas:
-1. Import BaseSchema and OutMixin from api.contrib.schemas
-2. Create a base schema with all fields
-3. Create Input schema (for POST requests) - inherits from base
-4. Create Output schema (for responses) - inherits from base + OutMixin
-5. Create Update schema (for PATCH requests) - all fields optional
-6. Use Annotated with Field for validation and documentation
-
-Pydantic Field parameters:
-- description: Field description for API docs
-- example: Example value for API docs
-- max_length: Maximum string length
-- min_length: Minimum string length
-- ge: Greater than or equal (for numbers)
-- le: Less than or equal (for numbers)
-- gt: Greater than (for numbers)
-- lt: Less than (for numbers)
-- pattern: Regex pattern for strings
-
-Common types:
-- str: String
-- int: Integer
-- float: Float
-- bool: Boolean
-- datetime: DateTime
-- UUID4: UUID
-- Optional[type]: Optional field (can be None)
-- list[type]: List of items
+Defines validation and serialization schemas for bank account operations.
 """
 
 from datetime import datetime
@@ -44,23 +15,10 @@ from src.contrib.schemas import AccountType
 class Account(BaseSchema):
     """
     Base Schema for Account Entity
-    This schema includes all fields for the Account entity.
-
-    Instructions:
-    - Define all fields that exist in the database model
-    - Use Annotated with Field for validation and documentation
-    - This schema is inherited by Input, Output, and Update schemas
     
     Attributes:
-        owner: Annotated[UUID5, Field(...)]
-        owner_name: Annotated[str, Field(...)]
-        account_number: Annotated[str, Field(...)]
-        account_type: Annotated[str, Field(...)]
-        balance: Annotated[float, Field(...)]
-        is_active: Annotated[bool, Field(...)]
-        created_at: Annotated[datetime, Field(...)]
+        account_type: Type of account (savings or checking)
     """
-
 
     account_type: Annotated[
         AccountType,
@@ -76,15 +34,9 @@ class Account(BaseSchema):
 
 class AccountIn(Account):
     """
-    Input Schema for Creating Example Entity
+    Input Schema for Creating Bank Account
     
-    This schema is used for POST requests (creating new entities).
-    It inherits all fields from the base schema.
-    
-    Instructions:
-    - Add any fields that are required only on creation (e.g., password)
-    - Remove any fields that shouldn't be settable by users (e.g., id, timestamps)
-    - Keep fields that users should provide when creating
+    Used for POST requests to create new accounts.
     """
 
     password: Annotated[
@@ -100,15 +52,9 @@ class AccountIn(Account):
 
 class AccountOut(Account, OutMixin):
     """
-    Output Schema for Example Entity
+    Output Schema for Account
     
-    This schema is used for API responses (GET, POST, PATCH).
-    It includes all fields from the base schema plus id and created_at from OutMixin.
-    
-    Instructions:
-    - This automatically includes: id (UUID) and created_at (datetime)
-    - Add any computed fields or relationships
-    - Don't include sensitive fields (e.g., passwords)
+    Used for API responses. Includes account details without password.
     """
     account_number: Annotated[
         int,
@@ -142,22 +88,13 @@ class AccountOut(Account, OutMixin):
             example='2023-01-01T12:00:00Z'
         )
     ]
-    
-    # Example: Add computed field
-    # @property
-    # def full_name(self) -> str:
-    #     return f"{self.first_name} {self.last_name}"
-    
-    # Example: Add relationship
-    # from api.categories.schemas import CategoryOut
-    # category: Annotated[CategoryOut, Field(description='Related category')]
 
 
 class AccountUpdate(BaseSchema):
     """
-    Update Schema for Account Entity
-    This schema is used for PATCH requests (updating existing entities).
-    All fields are optional to allow partial updates.
+    Update Schema for Account
+    
+    Used for PATCH requests. All fields are optional for partial updates.
     """
     password: Annotated[
         Optional[str],
@@ -171,9 +108,9 @@ class AccountUpdate(BaseSchema):
 
 class AccountAdminUpdate(AccountUpdate):
     """
-    Update Schema for Account Entity
-    This schema is used for PATCH requests (updating existing entities).
-    All fields are optional to allow partial updates.
+    Admin Update Schema for Account
+    
+    Allows admins to update withdrawal limits.
     """
     daily_withdrawal_limit: Annotated[
         Optional[int],
@@ -197,13 +134,7 @@ class AccountList(BaseSchema):
     """
     Simplified Schema for List Responses
     
-    This schema is used when returning lists of entities.
-    It includes only essential fields to reduce response size.
-    
-    Instructions:
-    - Include only the most important fields
-    - Use this for GET /entities (list endpoint)
-    - Keep response size small for better performance
+    Used for GET /accounts endpoint. Includes only essential fields.
     """
     account_number: Annotated[
         int,
@@ -228,6 +159,3 @@ class AccountList(BaseSchema):
             example=1500.75
         )
     ]
-    
-    # Add id and created_at if needed
-    # But typically you want to keep list responses lightweight
