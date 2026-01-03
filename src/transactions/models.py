@@ -1,31 +1,7 @@
 """
-Example Entity Database Models
+Transaction Database Models
 
-This file defines the database schema for the example entity using SQLAlchemy ORM.
-
-Instructions for creating your own models:
-1. Import the BaseModel from api.contrib.models
-2. Define your model class inheriting from BaseModel
-3. Set the __tablename__ attribute (use plural, snake_case)
-4. Define columns using Mapped and mapped_column
-5. Add relationships if needed with foreign keys
-
-Column types commonly used:
-- Integer: For integer numbers
-- String(length): For text with max length
-- Float: For decimal numbers
-- Boolean: For true/false values
-- DateTime: For timestamps
-- ForeignKey: For relationships
-
-Example relationships:
-- One-to-Many: Use relationship() with back_populates
-- Many-to-One: Use ForeignKey and relationship()
-- Many-to-Many: Create an association table
-
-After creating/modifying models:
-1. Run: alembic revision --autogenerate -m "Description of changes"
-2. Run: alembic upgrade head
+Defines the database schema for financial transactions.
 """
 
 from datetime import datetime, timezone
@@ -42,25 +18,21 @@ if TYPE_CHECKING:
 
 class TransactionModel(BaseModel):
     """
-    Example Entity Database Model
+    Transaction Database Model
     
-    This is a template showing different field types and configurations.
-    Replace this with your actual entity model.
+    Represents financial transactions (deposits and withdrawals).
     
     Attributes:
-        pk_id: Primary key (auto-increment integer)
-        name: Entity name (required, max 100 chars)
-        description: Entity description (optional, text field)
-        value: Numeric value (optional, float)
-        is_active: Active status flag (default True)
-        created_at: Creation timestamp (auto-set)
-        
-    Table name: example_entities
+        pk_id: Primary key (UUID)
+        created_at: Transaction timestamp
+        origin_account_number: Account involved in transaction
+        value: Transaction amount
+        transaction_type: Type (deposit or withdrawal)
+        account: Related account
     """
     
     __tablename__ = 'transactions'
     
-    # Primary Key - Auto-generated UUID field
     pk_id: Mapped[UUIDType] = mapped_column(
         UUID(as_uuid=True),
         primary_key=True,
@@ -101,28 +73,6 @@ class TransactionModel(BaseModel):
         lazy='selectin'
     )
     
-    # Examples of other field types:
-    
-    # Unique field:
-    # code: Mapped[str] = mapped_column(String(50), unique=True, nullable=False)
-    
-    # Field with check constraint:
-    # age: Mapped[int] = mapped_column(Integer, CheckConstraint('age >= 0'), nullable=False)
-    
-    # Enum field:
-    # from enum import Enum
-    # class Status(str, Enum):
-    #     ACTIVE = "active"
-    #     INACTIVE = "inactive"
-    # status: Mapped[str] = mapped_column(String(20), default=Status.ACTIVE, nullable=False)
-    
-    # Foreign Key example (Many-to-One):
-    # category_id: Mapped[int] = mapped_column(ForeignKey("categories.pk_id"), nullable=False)
-    # category: Mapped['CategoryModel'] = relationship(back_populates="examples", lazy='selectin')
-    
-    # One-to-Many relationship example (in parent model):
-    # examples: Mapped[list['ExampleEntityModel']] = relationship(back_populates="category", lazy='selectin')
-    
     def __repr__(self) -> str:
         """String representation of the model"""
-        return f"<TransactionModel(id={self.pk_id}, origin_account={self.origin_account}, value={self.value}, type={self.transaction_type})>"
+        return f"<Transaction(id={self.pk_id}, account={self.origin_account_number}, value={self.value}, type={self.transaction_type})>"

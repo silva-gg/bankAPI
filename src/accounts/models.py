@@ -15,25 +15,24 @@ class AccountModel(BaseModel):
     """
     Account Database Model
     
-    Data for bank accounts.
+    Represents bank accounts with balance tracking and withdrawal limits.
     
     Attributes:
-        pk_id: Primary key (auto-increment integer)
+        account_number: Primary key (auto-increment integer)
         owner: UUID5 of the account owner (foreign key to UserModel)
-        owner_name: Name of the account owner (required, max 100 chars)
-        account_number: Account number (required, max 20 chars)
-        account_type: Type of account (e.g., savings, checking)
-        balance: Current balance (float)
-        is_active: Active status flag (default True)
-        created_at: Creation timestamp (auto-set)
-
-        
-    Table name: accounts
+        account_type: Type of account (savings or checking)
+        balance: Current balance
+        is_active: Active status flag
+        created_at: Creation timestamp
+        hashed_password: Hashed account password
+        daily_withdrawal_limit: Daily withdrawal attempt limit
+        special_withdrawal_limit: Maximum special withdrawal amount
+        used_special_withdrawal: Amount used from special withdrawal
+        transactions: Related transactions
     """
     
     __tablename__ = 'accounts'
     
-    # Primary Key - Auto-incrementing integer
     account_number: Mapped[int] = mapped_column(
         Integer,
         primary_key=True,
@@ -108,4 +107,4 @@ class AccountModel(BaseModel):
 
     def __repr__(self) -> str:
         """String representation of the model"""
-        return f"<Account(id={self.account_number}, owner_name='{self.owner_name}')>"
+        return f"<Account(number={self.account_number}, type={self.account_type}, balance={self.balance})>"
