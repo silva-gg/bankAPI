@@ -63,12 +63,23 @@ async def register_transaction(
         HTTPException 500: If database error occurs
     """
     try:
-        # Create output schema with UUID and timestamp
-        transaction_out = TransactionOut(
+        if transaction_in.transaction_type == TransactionType.TRANSFER:
+            if not transaction_in.destination_account_number:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail='Destination account number must be provided for transfer transactions'
+                )
+            transaction_out = TransactionOut(
             id=uuid4(),
             created_at=datetime.now(timezone.utc),
             **transaction_in.model_dump()
-        )
+            )
+        else:
+            transaction_out = TransactionOut(
+                id=uuid4(),
+                created_at=datetime.now(timezone.utc),
+                **transaction_in.model_dump(exclude={'destination_account_number'})
+            )
         
         # Create database model from output schema
         transaction_model = TransactionModel(**transaction_out.model_dump())
@@ -80,33 +91,60 @@ async def register_transaction(
             AccountModel,
             transaction_in.origin_account_number
         )
-        account_withdrawals_today = await select(TransactionModel).filter(
-            TransactionModel.origin_account_number == transaction_in.origin_account_number,
-            TransactionModel.transaction_type == TransactionType.WITHDRAWAL,
-            TransactionModel.created_at >= datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
-        )
-        withdraw_limit = account_model.daily_withdrawal_limit
-        special_withdraw_limit = account_model.special_withdrawal_limit
-        balance = account_model.balance
-        used_special_withdraw = account_model.used_special_withdrawal
+        
+        # Check if account exists before accessing attributes
         if not account_model:
+            await db_session.rollback()
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail=f'Account with number {transaction_in.origin_account_number} not found'
             )
-        elif account_model.owner != current_user.uuid5 and not current_user.is_superuser:
+        
+        # Get account attributes
+        withdraw_limit = account_model.daily_withdrawal_limit
+        special_withdraw_limit = account_model.special_withdrawal_limit
+        balance = account_model.balance
+        used_special_withdraw = account_model.used_special_withdrawal
+        
+        # Build and execute withdrawal query for later use
+        account_withdrawals_today_query = select(TransactionModel).filter(
+            TransactionModel.origin_account_number == transaction_in.origin_account_number,
+            TransactionModel.transaction_type == TransactionType.WITHDRAWAL,
+            TransactionModel.created_at >= datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
+        )
+        
+        # Check permissions
+        if account_model.owner != current_user.uuid5 and not current_user.is_superuser:
+            await db_session.rollback()
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail='You do not have permission to perform transactions on this account'
             )
-        elif transaction_type == TransactionType.DEPOSIT:
+        
+        # Handle transaction based on type
+        if transaction_type == TransactionType.DEPOSIT:
             # Deposits always succeed because of Pydantic validation
+            # pays special withdrawal if any used
+            if used_special_withdraw > 0:
+                if value >= used_special_withdraw:
+                    account_model.used_special_withdrawal = 0.0
+                    account_model.balance += (value - used_special_withdraw)
+                else:
+                    account_model.used_special_withdrawal -= value
+            else:
+                account_model.balance += value
+            
+            db_session.add(account_model)
+            db_session.add(transaction_model)
+            await db_session.commit()
             return transaction_out
-        elif transaction_type == TransactionType.WITHDRAWAL:
+        
+        if transaction_type == TransactionType.WITHDRAWAL:
             # Check daily withdrawal limit
-            result = await db_session.execute(account_withdrawals_today)
+            result = await db_session.execute(account_withdrawals_today_query)
             withdrawals_today = result.scalars().all()
             if len(withdrawals_today) >= withdraw_limit:
+                await db_session.rollback()
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
                     detail='Daily withdrawal limit exceeded'
@@ -114,16 +152,51 @@ async def register_transaction(
             # Check sufficient balance including special withdrawal limit
             available_balance = balance + (special_withdraw_limit - used_special_withdraw)
             if value > available_balance:
+                await db_session.rollback()
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
                     detail='Insufficient funds for this withdrawal'
                 )
-            # Update used special withdrawal if necessary
+            # Update balance and special withdrawal if necessary
             if value > balance:
                 account_model.used_special_withdrawal += (value - balance)
-                db_session.add(account_model)
-                await db_session.commit()
-                return transaction_out
+                account_model.balance = 0.0
+            else:
+                account_model.balance -= value
+            
+            db_session.add(account_model)
+            db_session.add(transaction_model)
+            await db_session.commit()
+            return transaction_out
+        
+        if transaction_type == TransactionType.TRANSFER:
+            # Check sufficient balance for transfer (no special withdrawal for transfers)
+            if value > balance:
+                await db_session.rollback()
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail='Insufficient funds for this transfer'
+                )
+            
+            destination_account_model = await db_session.get(
+                AccountModel,
+                transaction_in.destination_account_number
+            )
+            if not destination_account_model:
+                await db_session.rollback()
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail=f'Destination account with number {transaction_in.destination_account_number} not found'
+                )
+            
+            # Perform transfer
+            account_model.balance -= value
+            destination_account_model.balance += value
+            db_session.add(account_model)
+            db_session.add(destination_account_model)
+            db_session.add(transaction_model)
+            await db_session.commit()
+            return transaction_out
     except IntegrityError as e:
         await db_session.rollback()
         raise HTTPException(
@@ -131,6 +204,7 @@ async def register_transaction(
             detail=f'Transaction in constraint violation: {str(e)}'
         )
     except HTTPException as e:
+        await db_session.rollback()
         raise e
     except Exception as e:
         await db_session.rollback()
@@ -173,8 +247,8 @@ async def get_all_transactions(
         GET /examples?name=test&is_active=true&page=1&size=10
     """
     # Start with base query
-    query = select(TransactionModel).filter(TransactionModel.origin_account.in_(
-        select(AccountModel.id).filter(AccountModel.owner == current_user.uuid5)
+    query = select(TransactionModel).filter(TransactionModel.origin_account_number.in_(
+        select(AccountModel.account_number).filter(AccountModel.owner == current_user.uuid5)
         ))
     
     # Apply filters if provided

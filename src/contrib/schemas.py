@@ -63,3 +63,4 @@ class TransactionType(str, Enum):
     """Transaction type enumeration"""
     DEPOSIT = 'deposit'
     WITHDRAWAL = 'withdrawal'
+    TRANSFER = 'transfer'

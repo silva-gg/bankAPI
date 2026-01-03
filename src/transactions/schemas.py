@@ -46,6 +46,14 @@ class TransactionIn(Transaction):
             example=1234567890
         )
     ]
+    destination_account_number: Annotated[
+        Optional[int],
+        Field(
+            None,
+            description='Destination account number for transfers (optional)',
+            example=9876543210
+        )
+    ]
 
 
 class TransactionOut(Transaction, OutMixin):

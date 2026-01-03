@@ -11,7 +11,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from src.contrib.models import BaseModel
 from src.contrib.schemas import TransactionType
 from sqlalchemy import Enum
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional
 
 if TYPE_CHECKING:
     from src.accounts.models import AccountModel
@@ -56,6 +56,13 @@ class TransactionModel(BaseModel):
         comment='Origin account number'
     )
 
+    destination_account_number: Mapped[Optional[int]] = mapped_column(
+        Integer,
+        ForeignKey('accounts.account_number'),
+        nullable=True,
+        comment='Destination account number (for transfers, optional when applicable)'
+    )
+
     value: Mapped[float] = mapped_column(
         Float,
         nullable=False,
@@ -70,6 +77,7 @@ class TransactionModel(BaseModel):
 
     account: Mapped['AccountModel'] = relationship(
         back_populates="transactions",
+        foreign_keys=[origin_account_number],
         lazy='selectin'
     )
     
