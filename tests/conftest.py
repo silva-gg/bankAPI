@@ -26,17 +26,9 @@ TEST_DB_URL = os.getenv(
 )
 
 
-@pytest.fixture(scope="session")
-def event_loop() -> Generator:
-    """Create an instance of the default event loop for the test session."""
-    loop = asyncio.get_event_loop_policy().new_event_loop()
-    yield loop
-    loop.close()
-
-
-@pytest.fixture(scope="session")
+@pytest.fixture(scope="function")
 async def test_engine():
-    """Create test database engine."""
+    """Create test database engine for each test."""
     engine = create_async_engine(
         TEST_DB_URL,
         echo=False,
@@ -52,6 +44,10 @@ async def test_db(test_engine) -> AsyncGenerator[AsyncSession, None]:
     Create test database tables and provide a database session for each test.
     Tables are created before each test and dropped after.
     """
+    # Drop all tables first to ensure clean state
+    async with test_engine.begin() as conn:
+        await conn.run_sync(Base.metadata.drop_all)
+    
     # Create all tables
     async with test_engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
@@ -65,9 +61,8 @@ async def test_db(test_engine) -> AsyncGenerator[AsyncSession, None]:
     
     async with async_session() as session:
         yield session
-        await session.rollback()
     
-    # Drop all tables after test
+    # Drop all tables after test to ensure cleanup
     async with test_engine.begin() as conn:
         await conn.run_sync(Base.metadata.drop_all)
 
@@ -201,6 +196,7 @@ async def test_account(test_db: AsyncSession, test_user: dict) -> dict:
     from src.accounts.models import AccountModel
     from src.users.auth import hash_password
     from datetime import datetime, timezone
+    from uuid import UUID
     
     account_data = {
         "account_type": "savings",
@@ -208,7 +204,7 @@ async def test_account(test_db: AsyncSession, test_user: dict) -> dict:
     }
     
     account = AccountModel(
-        owner=test_user["uuid5"],
+        owner=UUID(test_user["uuid5"]),  # Convert string to UUID object
         account_type=account_data["account_type"],
         hashed_password=hash_password(account_data["password"]),
         is_active=True,

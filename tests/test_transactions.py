@@ -75,7 +75,7 @@ class TestDeposits:
     async def test_deposit_nonexistent_account_fails(self, client: AsyncClient, auth_headers: dict):
         """Test deposit to non-existent account fails."""
         transaction_data = {
-            "origin_account_number": 9999999999,
+            "origin_account_number": 999999999,  # Valid int32 but non-existent
             "value": 100.00,
             "transaction_type": "deposit"
         }
@@ -171,7 +171,7 @@ class TestWithdrawals:
         }
         await client.post("/transactions/", headers=auth_headers, json=deposit_data)
         
-        # Make multiple withdrawals (default limit is typically 3)
+        # Make multiple withdrawals (default limit is 5)
         withdrawal_data = {
             "origin_account_number": test_account["account_number"],
             "value": 100.00,
@@ -179,7 +179,7 @@ class TestWithdrawals:
         }
         
         # Make withdrawals up to the limit
-        for i in range(3):
+        for i in range(5):
             response = await client.post("/transactions/", headers=auth_headers, json=withdrawal_data)
             assert response.status_code == 201
         
@@ -250,7 +250,7 @@ class TestTransfers:
         # Try to transfer
         transfer_data = {
             "origin_account_number": test_account["account_number"],
-            "destination_account_number": 9999999999,
+            "destination_account_number": 999999999,  # Valid int32 but non-existent
             "value": 100.00,
             "transaction_type": "transfer"
         }
