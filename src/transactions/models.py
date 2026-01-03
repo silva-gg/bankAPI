@@ -75,12 +75,18 @@ class TransactionModel(BaseModel):
         comment='Type of transaction (e.g., deposit, withdrawal)'
     )
 
-    account: Mapped['AccountModel'] = relationship(
-        back_populates="transactions",
+    origin_account: Mapped['AccountModel'] = relationship(
+        back_populates="outgoing_transactions",
         foreign_keys=[origin_account_number],
         lazy='selectin'
     )
     
+    destination_account: Mapped[Optional['AccountModel']] = relationship(
+        back_populates="incoming_transactions",
+        foreign_keys=[destination_account_number],
+        lazy='selectin'
+    )
+
     def __repr__(self) -> str:
         """String representation of the model"""
         return f"<Transaction(id={self.pk_id}, account={self.origin_account_number}, value={self.value}, type={self.transaction_type})>"
