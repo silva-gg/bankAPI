@@ -14,8 +14,8 @@ from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sess
 from sqlalchemy.pool import NullPool
 
 from src.main import app
-from src.contrib.models import Base
-from src.configs.database import get_db_session
+from src.contrib.models import BaseModel as Base
+from src.configs.database import get_session as get_db_session
 from src.users.auth import create_access_token
 
 
