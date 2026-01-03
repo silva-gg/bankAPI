@@ -28,12 +28,17 @@ After creating/modifying models:
 2. Run: alembic upgrade head
 """
 
-from datetime import datetime
+from datetime import datetime, timezone
 from uuid import UUID as UUIDType, uuid4
 from sqlalchemy import UUID, DateTime, ForeignKey, Integer, String, Float, Boolean, Text
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 from src.contrib.models import BaseModel
-from src.contrib.models import TransactionType
+from src.contrib.schemas import TransactionType
+from sqlalchemy import Enum
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from src.accounts.models import AccountModel
 
 class TransactionModel(BaseModel):
     """
@@ -67,16 +72,16 @@ class TransactionModel(BaseModel):
 
     created_at: Mapped[datetime] = mapped_column(
         DateTime,
-        default=datetime.utcnow,
+        default=datetime.now(timezone.utc),
         nullable=False,
         comment='Creation timestamp'
     )
-    
-    origin_account: Mapped[UUIDType] = mapped_column(
-        UUID(as_uuid=True),
-        ForeignKey('accounts.id'),
+
+    origin_account_number: Mapped[int] = mapped_column(
+        Integer,
+        ForeignKey('accounts.account_number'),
         nullable=False,
-        comment='Origin account UUID'
+        comment='Origin account number'
     )
 
     value: Mapped[float] = mapped_column(
@@ -86,12 +91,15 @@ class TransactionModel(BaseModel):
     )
 
     transaction_type: Mapped[TransactionType] = mapped_column(
-        String(50),
+        Enum(TransactionType, values_callable=lambda x: [e.value for e in x]),
         nullable=False,
         comment='Type of transaction (e.g., deposit, withdrawal)'
     )
 
-
+    account: Mapped['AccountModel'] = relationship(
+        back_populates="transactions",
+        lazy='selectin'
+    )
     
     # Examples of other field types:
     
@@ -117,4 +125,4 @@ class TransactionModel(BaseModel):
     
     def __repr__(self) -> str:
         """String representation of the model"""
-        return f"<TransactionModel(id={self.pk_id}, origin_account={self.origin_account})>"
+        return f"<TransactionModel(id={self.pk_id}, origin_account={self.origin_account}, value={self.value}, type={self.transaction_type})>"

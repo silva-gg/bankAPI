@@ -34,7 +34,7 @@ Example:
 from typing import Annotated
 from pydantic import UUID4, BaseModel as PydanticBaseModel, Field, ConfigDict
 from datetime import datetime
-
+from enum import Enum
 
 class BaseSchema(PydanticBaseModel):
     """
@@ -116,3 +116,15 @@ class MessageResponse(BaseSchema):
     """
     
     message: Annotated[str, Field(description='Response message')]
+
+class AccountType(str, Enum):
+    """Account type enumeration"""
+    SAVINGS = 'savings'
+    CHECKING = 'checking'
+    BUSINESS = 'business'
+
+class TransactionType(str, Enum):
+    """Transaction type enumeration"""
+    DEPOSIT = 'deposit'
+    WITHDRAWAL = 'withdrawal'
+

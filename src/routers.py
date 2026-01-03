@@ -22,7 +22,7 @@ api_router = APIRouter()
 api_router.include_router(
     users_router,
     prefix='/auth',
-    tags=['authentication']
+    tags=['🔑 Authentication']
 )
 
 # Register entity routers
@@ -30,12 +30,12 @@ api_router.include_router(
 api_router.include_router(
     accounts_router, 
     prefix='/accounts', 
-    tags=['accounts']
+    tags=['🏦 Accounts']
 )
 
 # Transaction router
 api_router.include_router(
     transactions_router,
     prefix='/transactions',
-    tags=['transactions']
+    tags=['💸 Transactions']
 )

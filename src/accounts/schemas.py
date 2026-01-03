@@ -38,7 +38,7 @@ from typing import Annotated, Optional
 from pydantic import UUID5, Field, PositiveFloat, constr
 from src.users.schemas import UserOut
 from src.contrib.schemas import BaseSchema, OutMixin
-from src.contrib.models import AccountType
+from src.contrib.schemas import AccountType
 
 
 class Account(BaseSchema):
@@ -169,6 +169,29 @@ class AccountUpdate(BaseSchema):
         )
     ]
 
+class AccountAdminUpdate(AccountUpdate):
+    """
+    Update Schema for Account Entity
+    This schema is used for PATCH requests (updating existing entities).
+    All fields are optional to allow partial updates.
+    """
+    daily_withdrawal_limit: Annotated[
+        Optional[int],
+        Field(
+            None,
+            description='Daily limit for successful withdrawal attempts',
+            ge=0
+        )
+    ]
+
+    special_withdrawal_limit: Annotated[
+        Optional[float],
+        Field(
+            None,
+            description='Maximum amount allowed for special withdrawals',
+            ge=0.0
+        )
+    ]
 
 class AccountList(BaseSchema):
     """

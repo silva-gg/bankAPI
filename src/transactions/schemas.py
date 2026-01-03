@@ -34,11 +34,11 @@ Common types:
 """
 
 from typing import Annotated, Optional
-from pydantic import Field, PositiveFloat, constr
-from src.contrib.schemas import BaseSchema, OutMixin
+from pydantic import UUID4, Field, PositiveFloat, constr
+from src.contrib.schemas import BaseSchema, OutMixin,TransactionType
 
 
-class ExampleEntity(BaseSchema):
+class Transaction(BaseSchema):
     """
     Base Example Entity Schema
     
@@ -50,76 +50,25 @@ class ExampleEntity(BaseSchema):
     - Use Annotated with Field for validation and documentation
     - Add validation rules as needed
     """
-    
-    name: Annotated[
-        str,
-        Field(
-            description='Name of the entity',
-            example='Example Item',
-            max_length=100,
-            min_length=1
-        )
-    ]
-    
-    description: Annotated[
-        Optional[str],
-        Field(
-            None,
-            description='Description of the entity',
-            example='This is an example entity for demonstration purposes',
-            max_length=500
-        )
-    ]
-    
     value: Annotated[
-        Optional[PositiveFloat],
+        PositiveFloat,
         Field(
-            None,
-            description='Numeric value (must be positive)',
-            example=99.99,
+            description='Numeric value for the transaction (must be positive)',
+            example=100.50,
             ge=0.0
         )
     ]
-    
-    is_active: Annotated[
-        bool,
+
+    transaction_type: Annotated[
+        TransactionType,
         Field(
-            default=True,
-            description='Whether the entity is active',
-            example=True
+            description='Type of transaction (deposit or withdrawal)',
+            example='deposit'
         )
     ]
-    
-    # Examples of other field types:
-    
-    # Email field:
-    # from pydantic import EmailStr
-    # email: Annotated[EmailStr, Field(description='Email address', example='user@example.com')]
-    
-    # URL field:
-    # from pydantic import HttpUrl
-    # website: Annotated[Optional[HttpUrl], Field(None, description='Website URL')]
-    
-    # Enum field:
-    # from enum import Enum
-    # class StatusEnum(str, Enum):
-    #     ACTIVE = "active"
-    #     INACTIVE = "inactive"
-    # status: Annotated[StatusEnum, Field(description='Entity status')]
-    
-    # List field:
-    # tags: Annotated[list[str], Field(default_factory=list, description='List of tags')]
-    
-    # Constrained string (regex pattern):
-    # code: Annotated[constr(pattern=r'^[A-Z]{3}\d{3}$'), Field(description='Code format: ABC123')]
-    
-    # Date/DateTime fields:
-    # from datetime import date, datetime
-    # birth_date: Annotated[date, Field(description='Birth date')]
-    # created_at: Annotated[datetime, Field(description='Creation timestamp')]
 
 
-class ExampleEntityIn(ExampleEntity):
+class TransactionIn(Transaction):
     """
     Input Schema for Creating Example Entity
     
@@ -131,13 +80,19 @@ class ExampleEntityIn(ExampleEntity):
     - Remove any fields that shouldn't be settable by users (e.g., id, timestamps)
     - Keep fields that users should provide when creating
     """
-    pass
+    origin_account_number: Annotated[
+        int,
+        Field(
+            description='Account number associated with the transaction',
+            example=1234567890
+        )
+    ]
     
     # Example: Add password field only for creation
     # password: Annotated[str, Field(description='User password', min_length=8)]
 
 
-class ExampleEntityOut(ExampleEntity, OutMixin):
+class TransactionOut(Transaction, OutMixin):
     """
     Output Schema for Example Entity
     
@@ -150,7 +105,6 @@ class ExampleEntityOut(ExampleEntity, OutMixin):
     - Don't include sensitive fields (e.g., passwords)
     """
     pass
-    
     # Example: Add computed field
     # @property
     # def full_name(self) -> str:
@@ -161,58 +115,7 @@ class ExampleEntityOut(ExampleEntity, OutMixin):
     # category: Annotated[CategoryOut, Field(description='Related category')]
 
 
-class ExampleEntityUpdate(BaseSchema):
-    """
-    Update Schema for Example Entity
-    
-    This schema is used for PATCH requests (updating existing entities).
-    All fields are optional - users can update only the fields they want.
-    
-    Instructions:
-    - Make all fields Optional
-    - Include only fields that can be updated
-    - Don't include id, created_at, or other immutable fields
-    """
-    
-    name: Annotated[
-        Optional[str],
-        Field(
-            None,
-            description='Name of the entity',
-            example='Updated Name',
-            max_length=100,
-            min_length=1
-        )
-    ]
-    
-    description: Annotated[
-        Optional[str],
-        Field(
-            None,
-            description='Description of the entity',
-            max_length=500
-        )
-    ]
-    
-    value: Annotated[
-        Optional[PositiveFloat],
-        Field(
-            None,
-            description='Numeric value (must be positive)',
-            ge=0.0
-        )
-    ]
-    
-    is_active: Annotated[
-        Optional[bool],
-        Field(
-            None,
-            description='Whether the entity is active'
-        )
-    ]
-
-
-class ExampleEntityList(BaseSchema):
+class TransactionList(BaseSchema):
     """
     Simplified Schema for List Responses
     
@@ -225,8 +128,16 @@ class ExampleEntityList(BaseSchema):
     - Keep response size small for better performance
     """
     
-    name: Annotated[str, Field(description='Entity name')]
-    is_active: Annotated[bool, Field(description='Active status')]
-    
-    # Add id and created_at if needed
-    # But typically you want to keep list responses lightweight
+    value: Annotated[float, Field(description='Transaction value')]
+    transaction_type: Annotated[TransactionType, Field(description='Type of transaction')]
+    created_at: Annotated[
+        Optional[str],
+        Field(description='Timestamp when the transaction was created')
+    ]
+    origin_account_number: Annotated[
+        int,
+        Field(
+            description='Account number associated with the transaction',
+            example=1234567890
+        )
+    ]

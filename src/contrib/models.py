@@ -19,7 +19,6 @@ Example:
         name: Mapped[str] = mapped_column(String(100), nullable=False)
 """
 
-from enum import Enum
 from uuid import uuid4
 from sqlalchemy import UUID
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
@@ -60,15 +59,3 @@ class BaseModel(DeclarativeBase):
     # Optional: Add soft delete support
     # is_deleted: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     # deleted_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
-
-
-class AccountType(str, Enum):
-    """Account type enumeration"""
-    SAVINGS = 'savings'
-    CHECKING = 'checking'
-    BUSINESS = 'business'
-
-class TransactionType(str, Enum):
-    """Transaction type enumeration"""
-    DEPOSIT = 'deposit'
-    WITHDRAWAL = 'withdrawal'

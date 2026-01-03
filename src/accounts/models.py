@@ -1,12 +1,14 @@
 from datetime import datetime
 from sqlalchemy import UUID, DateTime, ForeignKey, Integer, String, Float, Boolean, Enum
 from sqlalchemy.orm import Mapped, mapped_column, relationship
-from src.contrib.models import BaseModel, AccountType
+from src.contrib.schemas import AccountType
+from src.contrib.models import BaseModel
 from uuid import UUID as UUIDType
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from src.users.models import UserModel
+    from src.transactions.models import TransactionModel
 
 
 class AccountModel(BaseModel):
@@ -76,6 +78,32 @@ class AccountModel(BaseModel):
         String(255),
         nullable=False,
         comment='Hashed account password'
+    )
+
+    daily_withdrawal_limit: Mapped[int] = mapped_column(
+        Integer,
+        default=5,
+        nullable=False,
+        comment='Daily limit for successful withdrawal attempts'
+    )
+
+    special_withdrawal_limit: Mapped[float] = mapped_column(
+        Float,
+        default=500.0,
+        nullable=False,
+        comment='Maximum amount allowed for special withdrawals'
+    )
+
+    used_special_withdrawal: Mapped[float] = mapped_column(
+        Float,
+        default=0.0,
+        nullable=False,
+        comment='Amount already used from special withdrawal limit'
+    )
+
+    transactions: Mapped[list['TransactionModel']] = relationship(
+        back_populates="account",
+        lazy='selectin'
     )
 
     def __repr__(self) -> str:

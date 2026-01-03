@@ -42,7 +42,7 @@ from pydantic import UUID4
 from sqlalchemy.future import select
 from sqlalchemy.exc import IntegrityError
 from fastapi_pagination import Page, paginate
-from src.contrib.models import AccountType
+from src.contrib.schemas import AccountType
 from src.contrib.dependencies import DatabaseDependency, CurrentUser, RequireAdmin
 from src.users.auth import hash_password
 from .schemas import (

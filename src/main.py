@@ -24,11 +24,11 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(
-    title='bankAPI',
+    title='🏧 bankAPI',
     description='A simple banking API built with FastAPI',
     version='0.1.0',
     docs_url='/docs',  # Swagger UI
-    redoc_url=None,  # ReDoc disabled
+    redoc_url='/redoc',  # ReDoc disabled
     lifespan=lifespan
 )
 
@@ -39,7 +39,7 @@ app.include_router(api_router)
 add_pagination(app)
 
 
-@app.get('/', tags=['Health'])
+@app.get('/', tags=['⚙️ Health'])
 async def root():
     """
     Root endpoint - Health check
@@ -54,7 +54,7 @@ async def root():
     }
 
 
-@app.get('/health', tags=['Health'])
+@app.get('/health', tags=['⚙️ Health'])
 async def health_check():
     """
     Health check endpoint

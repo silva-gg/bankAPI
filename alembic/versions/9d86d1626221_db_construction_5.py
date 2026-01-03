@@ -9,7 +9,7 @@ from typing import Sequence, Union
 
 from alembic import op
 import sqlalchemy as sa
-from src.contrib.models import AccountType
+from src.contrib.schemas import AccountType
 
 
 # revision identifiers, used by Alembic.
