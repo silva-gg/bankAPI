@@ -65,7 +65,7 @@ poetry run pytest tests/test_auth.py -v
 poetry run pytest tests/test_auth.py::TestUserRegistration -v
 
 # Run specific test
-pytest tests/test_auth.py::TestUserRegistration::test_register_user_success -v
+poetry run pytest tests/test_auth.py::TestUserRegistration::test_register_user_success -v
 ```
 
 Alternatively, if you're inside the Poetry shell (after running `poetry shell`):
