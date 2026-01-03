@@ -59,25 +59,20 @@ This is a simplified banking API that demonstrates:
 
 ## ⚡ Quick Start
 
-Get your API running in 5 minutes:
+Get this API running in 5 minutes locally:
+
+Go to render.com and setup a free postrgreSQL server, copy and paste the DB_URL in the .env file
 
 ```bash
 # 1. Clone and enter directory
-git clone <your-repo-url>
+git clone https://github.com/silva-gg/bankAPI
 cd bankAPI
 
 # 2. Install dependencies
-pip install -r requirements.txt
-# or with Poetry: poetry install && poetry shell
+poetry install && poetry shell
 
-# 3. Start database
-docker-compose up -d
-
-# 4. Run migrations
-alembic upgrade head
-
-# 5. Start the API
-uvicorn src.main:app --reload
+# 3. Start the API
+poetry run uvicorn src.main:app --reload
 ```
 
 **That's it!** Your API is now running at http://localhost:8000
