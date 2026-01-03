@@ -28,7 +28,7 @@ async def get_current_user_basic(
     Authenticate user using HTTP Basic Authentication
     
     Args:
-        credentials: HTTP Basic credentials (username:password)
+        credentials: HTTP Basic credentials (user_number:password or email:password)
         db_session: Database session
         
     Returns:
@@ -40,15 +40,16 @@ async def get_current_user_basic(
     Usage:
         @router.get('/protected')
         async def protected_route(current_user: CurrentUserBasic):
-            return {"user": current_user.username}
+            return {"user": current_user.user_number}
     
     Example request:
-        curl -u username:password http://localhost:8000/api/endpoint
+        curl -u user_number:password http://localhost:8000/api/endpoint
+        curl -u email:password http://localhost:8000/api/endpoint
     """
-    # Find user by username or email
+    # Find user by user_number or email
     result = await db_session.execute(
         select(UserModel).filter(
-            (UserModel.username == credentials.username) |
+            (UserModel.user_number == credentials.username) |
             (UserModel.email == credentials.username)
         )
     )
@@ -58,7 +59,7 @@ async def get_current_user_basic(
     if not user or not verify_password(credentials.password, user.hashed_password):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail='Incorrect username or password',
+            detail='Incorrect user number/email or password',
             headers={'WWW-Authenticate': 'Basic'}
         )
     

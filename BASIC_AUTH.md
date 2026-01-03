@@ -1,14 +1,14 @@
 # HTTP Basic Authentication Guide
 
-This guide explains how to use HTTP Basic Authentication with the API - the simplest way to authenticate!
+This guide explains how to use HTTP Basic Authentication with the bankAPI - an alternative to JWT for simple use cases.
 
 ## What is Basic Authentication?
 
-HTTP Basic Authentication is a simple authentication scheme built into HTTP. You just send your username and password with each request - no tokens to manage!
+HTTP Basic Authentication is a simple authentication scheme built into HTTP. You just send your user number/email and password with each request - no tokens to manage!
 
-**Simple!** Just: `curl -u username:password http://localhost:8000/examples`
+**Simple!** Just: `curl -u user_number:password http://localhost:8000/accounts`
 
-## Why Basic Auth is Perfect for This Template
+## Why Basic Auth?
 
 **Dead Simple:**
 - ✅ No token management
@@ -23,6 +23,8 @@ HTTP Basic Authentication is a simple authentication scheme built into HTTP. You
 - 🎯 Development and testing
 - 🎯 Quick prototypes
 
+**Note:** Basic Auth is implemented but not currently used in the API endpoints. All endpoints use JWT authentication. This is available as an option if you want to enable it.
+
 ## Quick Start (30 seconds)
 
 ### 1. Register
@@ -31,7 +33,8 @@ HTTP Basic Authentication is a simple authentication scheme built into HTTP. You
 curl -X POST "http://localhost:8000/auth/register" \
   -H "Content-Type: application/json" \
   -d '{
-    "username": "john",
+    "user_number": "123456789",
+    "user_fullname": "John Doe",
     "email": "john@example.com",
     "password": "SecurePass123!"
   }'
@@ -40,50 +43,44 @@ curl -X POST "http://localhost:8000/auth/register" \
 ### 2. Use it!
 
 ```bash
-# That's it! Now just add -u username:password to any request
-curl -u john:SecurePass123! http://localhost:8000/examples
-```
+# Use with user_number
+curl -u 123456789:SecurePass123! http://localhost:8000/accounts
 
-**You can use email instead of username too:**
-```bash
-curl -u john@example.com:SecurePass123! http://localhost:8000/examples
+# Or use with email
+curl -u john@example.com:SecurePass123! http://localhost:8000/accounts
 ```
 
 ## Examples
 
-### Create Something
+### Create an Account
 
 ```bash
-curl -u john:SecurePass123! \
-  -X POST http://localhost:8000/examples \
+curl -u 123456789:SecurePass123! \
+  -X POST http://localhost:8000/accounts \
   -H "Content-Type: application/json" \
   -d '{
-    "name": "My Item",
-    "value": 99.99,
-    "is_active": true
+    "account_type": "savings",
+    "password": "AccountPass123!"
   }'
 ```
 
-### List Everything
+### List Accounts
 
 ```bash
-curl -u john:SecurePass123! http://localhost:8000/examples
+curl -u 123456789:SecurePass123! http://localhost:8000/accounts
 ```
 
-### Update Something
+### Create a Transaction
 
 ```bash
-curl -u john:SecurePass123! \
-  -X PATCH http://localhost:8000/examples/YOUR-ID-HERE \
+curl -u 123456789:SecurePass123! \
+  -X POST http://localhost:8000/transactions \
   -H "Content-Type: application/json" \
-  -d '{"name": "Updated Name"}'
-```
-
-### Delete Something
-
-```bash
-curl -u john:SecurePass123! \
-  -X DELETE http://localhost:8000/examples/YOUR-ID-HERE
+  -d '{
+    "origin_account_number": 1,
+    "value": 100.50,
+    "transaction_type": "deposit"
+  }'
 ```
 
 ## Using in Your Code
@@ -95,8 +92,8 @@ import requests
 
 # Super simple!
 response = requests.get(
-    'http://localhost:8000/examples',
-    auth=('john', 'SecurePass123!')
+    'http://localhost:8000/accounts',
+    auth=('123456789', 'SecurePass123!')
 )
 print(response.json())
 ```
@@ -107,9 +104,9 @@ print(response.json())
 import httpx
 
 async with httpx.AsyncClient(
-    auth=('john', 'SecurePass123!')
+    auth=('123456789', 'SecurePass123!')
 ) as client:
-    response = await client.get('http://localhost:8000/examples')
+    response = await client.get('http://localhost:8000/accounts')
     print(response.json())
 ```
 
@@ -117,11 +114,11 @@ async with httpx.AsyncClient(
 
 ```javascript
 // Using fetch
-const username = 'john';
+const user_number = '123456789';
 const password = 'SecurePass123!';
-const auth = btoa(`${username}:${password}`);
+const auth = btoa(`${user_number}:${password}`);
 
-fetch('http://localhost:8000/examples', {
+fetch('http://localhost:8000/accounts', {
   headers: {
     'Authorization': `Basic ${auth}`
   }
@@ -133,8 +130,8 @@ fetch('http://localhost:8000/examples', {
 ### PowerShell
 
 ```powershell
-$cred = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes("john:SecurePass123!"))
-Invoke-RestMethod -Uri "http://localhost:8000/examples" `
+$cred = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes("123456789:SecurePass123!"))
+Invoke-RestMethod -Uri "http://localhost:8000/accounts" `
   -Headers @{Authorization = "Basic $cred"}
 ```
 
@@ -148,21 +145,23 @@ Invoke-RestMethod -Uri "http://localhost:8000/examples" `
 
 ## Protecting Your Endpoints
 
+To enable Basic Auth in your endpoints, change from `CurrentUser` to `CurrentUserBasic`:
+
 ### Simple Protection
 
 ```python
-from api.contrib.dependencies import CurrentUserBasic
+from src.contrib.dependencies import CurrentUserBasic
 
 @router.get('/my-endpoint')
 async def my_endpoint(current_user: CurrentUserBasic):
     # Only authenticated users can access this
-    return {"message": f"Hello {current_user.username}!"}
+    return {"message": f"Hello {current_user.user_fullname}!"}
 ```
 
 ### Admin Only
 
 ```python
-from api.contrib.dependencies import RequireAdminBasic
+from src.contrib.dependencies import RequireAdminBasic
 
 @router.delete('/admin/dangerous-stuff')
 async def admin_only(admin: RequireAdminBasic):
@@ -181,45 +180,50 @@ import requests
 import sys
 
 BASE_URL = "http://localhost:8000"
-USERNAME = "john"
+USER_NUMBER = "123456789"
 PASSWORD = "SecurePass123!"
 
 class APIClient:
     def __init__(self):
-        self.auth = (USERNAME, PASSWORD)
+        self.auth = (USER_NUMBER, PASSWORD)
     
-    def create_item(self, name, value):
+    def create_account(self, account_type, password):
         response = requests.post(
-            f"{BASE_URL}/examples",
+            f"{BASE_URL}/accounts",
             auth=self.auth,
-            json={"name": name, "value": value, "is_active": True}
+            json={"account_type": account_type, "password": password}
         )
         return response.json()
     
-    def list_items(self):
+    def list_accounts(self):
         response = requests.get(
-            f"{BASE_URL}/examples",
+            f"{BASE_URL}/accounts",
             auth=self.auth
         )
         return response.json()
     
-    def delete_item(self, item_id):
-        response = requests.delete(
-            f"{BASE_URL}/examples/{item_id}",
-            auth=self.auth
+    def create_transaction(self, account_number, value, transaction_type):
+        response = requests.post(
+            f"{BASE_URL}/transactions",
+            auth=self.auth,
+            json={
+                "origin_account_number": account_number,
+                "value": value,
+                "transaction_type": transaction_type
+            }
         )
-        return response.status_code == 204
+        return response.json()
 
 if __name__ == "__main__":
     client = APIClient()
     
-    # Create item
-    item = client.create_item("Test Item", 99.99)
-    print(f"Created: {item}")
+    # Create account
+    account = client.create_account("savings", "AccountPass123!")
+    print(f"Created: {account}")
     
-    # List items
-    items = client.list_items()
-    print(f"Total items: {items['total']}")
+    # List accounts
+    accounts = client.list_accounts()
+    print(f"Total accounts: {accounts['total']}")
 ```
 
 ## Security Notes
@@ -242,20 +246,7 @@ if __name__ == "__main__":
 
 ## Also Available: JWT Auth
 
-If you need stateless tokens (for web/mobile apps), JWT auth is also included:
-
-```python
-# Login to get token
-response = requests.post('http://localhost:8000/auth/login',
-    json={"username": "john", "password": "SecurePass123!"})
-token = response.json()['access_token']
-
-# Use token
-response = requests.get('http://localhost:8000/examples',
-    headers={'Authorization': f'Bearer {token}'})
-```
-
-See [AUTHENTICATION.md](AUTHENTICATION.md) for JWT details.
+The API currently uses JWT authentication by default. See [AUTHENTICATION.md](AUTHENTICATION.md) for JWT details.
 
 ## When to Use What?
 
@@ -264,16 +255,16 @@ See [AUTHENTICATION.md](AUTHENTICATION.md) for JWT details.
 | Scripts & CLI tools | ✅ Basic Auth |
 | Internal APIs | ✅ Basic Auth |
 | Quick prototypes | ✅ Basic Auth |
-| Web applications | JWT Token |
-| Mobile apps | JWT Token |
-| Need token refresh | JWT Token |
+| Web applications | JWT Token (Current) |
+| Mobile apps | JWT Token (Current) |
+| Need token refresh | JWT Token (Current) |
 
 ## Common Issues
 
 ### 401 Unauthorized
-- Check username/password are correct
+- Check user number/email and password are correct
 - Verify account is active
-- Use email OR username (not both)
+- Use user_number OR email (not both)
 
 ### 403 Forbidden
 - User doesn't have required permissions
@@ -284,23 +275,23 @@ See [AUTHENTICATION.md](AUTHENTICATION.md) for JWT details.
 **Store credentials securely:**
 ```python
 import os
-username = os.getenv('API_USERNAME')
+user_number = os.getenv('API_USER_NUMBER')
 password = os.getenv('API_PASSWORD')
 ```
 
 **Test quickly with curl:**
 ```bash
 # Save credentials
-export API_USER="john:SecurePass123!"
+export API_USER="123456789:SecurePass123!"
 
 # Use them
-curl -u $API_USER http://localhost:8000/examples
+curl -u $API_USER http://localhost:8000/accounts
 ```
 
 **Debug auth issues:**
 ```bash
 # See the Authorization header being sent
-curl -v -u john:SecurePass123! http://localhost:8000/examples 2>&1 | grep Authorization
+curl -v -u 123456789:SecurePass123! http://localhost:8000/accounts 2>&1 | grep Authorization
 ```
 
 ---
