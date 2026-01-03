@@ -4,7 +4,7 @@ User Database Models
 This file defines the database schema for users and authentication.
 """
 
-from datetime import datetime
+from datetime import datetime, timezone
 from uuid import UUID as UUIDType, uuid5,  NAMESPACE_DNS
 from sqlalchemy import DateTime, Integer, String, Boolean
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -83,8 +83,8 @@ class UserModel(BaseModel):
     )
     
     created_at: Mapped[datetime] = mapped_column(
-        DateTime,
-        default=datetime.utcnow,
+        DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
         nullable=False,
         comment='Account creation timestamp'
     )

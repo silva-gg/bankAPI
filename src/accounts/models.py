@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from sqlalchemy import UUID, DateTime, ForeignKey, Integer, String, Float, Boolean, Enum
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from src.contrib.schemas import AccountType
@@ -68,8 +68,8 @@ class AccountModel(BaseModel):
         comment='Active status'
     )
     created_at: Mapped[datetime] = mapped_column(
-        DateTime,
-        default=datetime.utcnow,
+        DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
         nullable=False,
         comment='Creation timestamp'
     )

@@ -33,7 +33,7 @@ Error Handling:
 - Log unexpected errors
 """
 
-from datetime import datetime
+from datetime import datetime, timezone
 from uuid import uuid4, uuid5
 from typing import Optional
 
@@ -111,7 +111,7 @@ async def create_account(
         account_data = account_in.model_dump(exclude={'password'})
         account_model = AccountModel(
             owner=loggedin_user_id,
-            created_at=datetime.utcnow(),
+            created_at=datetime.now(timezone.utc),
             is_active=True,  # Set default value
             hashed_password=hash_password(account_in.password),  # Hash the password
             **account_data

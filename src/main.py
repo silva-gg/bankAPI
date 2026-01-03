@@ -6,6 +6,7 @@ Customize the title, description, and version according to your project.
 """
 
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from src.routers import api_router
 from fastapi_pagination import add_pagination
 from contextlib import asynccontextmanager
@@ -30,6 +31,19 @@ app = FastAPI(
     docs_url='/docs',  # Swagger UI
     redoc_url='/redoc',  # ReDoc disabled
     lifespan=lifespan
+)
+
+# Configure CORS
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "http://localhost:8000",
+        "http://127.0.0.1:8000",
+        "https://bankapi-1kb6.onrender.com"
+    ],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 # Include all API routers
