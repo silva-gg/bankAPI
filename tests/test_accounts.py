@@ -261,3 +261,185 @@ class TestAccountPagination:
         data = response.json()
         assert "items" in data
         assert len(data["items"]) <= 2
+
+
+@pytest.mark.asyncio
+class TestBankStatement:
+    """Tests for bank statement endpoint."""
+    
+    async def test_get_statement_basic(self, client: AsyncClient, test_account: dict, auth_headers: dict):
+        """Test getting basic bank statement without date filters."""
+        response = await client.get(
+            f"/accounts/statements/me?account_number={test_account['account_number']}",
+            headers=auth_headers
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert data["account_number"] == test_account["account_number"]
+        assert data["account_type"] == test_account["account_type"]
+        assert "balance" in data
+        assert "transactions" in data
+        assert isinstance(data["transactions"], list)
+    
+    async def test_get_statement_with_transactions(self, client: AsyncClient, test_account: dict, auth_headers: dict):
+        """Test getting statement includes transactions."""
+        # Create some transactions
+        deposit_data = {
+            "value": 100.0,
+            "transaction_type": "deposit",
+            "origin_account_number": test_account["account_number"]
+        }
+        await client.post("/transactions/", headers=auth_headers, json=deposit_data)
+        
+        withdrawal_data = {
+            "value": 50.0,
+            "transaction_type": "withdrawal",
+            "origin_account_number": test_account["account_number"]
+        }
+        await client.post("/transactions/", headers=auth_headers, json=withdrawal_data)
+        
+        # Get statement
+        response = await client.get(
+            f"/accounts/statements/me?account_number={test_account['account_number']}",
+            headers=auth_headers
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert len(data["transactions"]) >= 2
+        
+        # Verify transaction structure
+        for txn in data["transactions"]:
+            assert "pk_id" in txn
+            assert "value" in txn
+            assert "transaction_type" in txn
+            assert "created_at" in txn
+            assert "origin_account_number" in txn
+    
+    async def test_get_statement_with_initial_date(self, client: AsyncClient, test_account: dict, auth_headers: dict):
+        """Test filtering statement by initial date."""
+        from datetime import datetime, timedelta
+        
+        # Use a recent date
+        initial_date = (datetime.utcnow() - timedelta(days=1)).strftime('%Y-%m-%d')
+        
+        response = await client.get(
+            f"/accounts/statements/me?account_number={test_account['account_number']}&initial_date={initial_date}",
+            headers=auth_headers
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert "transactions" in data
+        
+        # Verify all transactions are after initial_date
+        for txn in data["transactions"]:
+            txn_date = datetime.fromisoformat(txn["created_at"].replace('Z', '+00:00'))
+            filter_date = datetime.fromisoformat(initial_date)
+            assert txn_date.date() >= filter_date.date()
+    
+    async def test_get_statement_with_final_date(self, client: AsyncClient, test_account: dict, auth_headers: dict):
+        """Test filtering statement by final date."""
+        from datetime import datetime
+        
+        # Use current date
+        final_date = datetime.utcnow().strftime('%Y-%m-%d')
+        
+        response = await client.get(
+            f"/accounts/statements/me?account_number={test_account['account_number']}&final_date={final_date}",
+            headers=auth_headers
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert "transactions" in data
+        
+        # Verify all transactions are before or on final_date
+        for txn in data["transactions"]:
+            txn_date = datetime.fromisoformat(txn["created_at"].replace('Z', '+00:00'))
+            filter_date = datetime.fromisoformat(final_date)
+            assert txn_date.date() <= filter_date.date()
+    
+    async def test_get_statement_with_date_range(self, client: AsyncClient, test_account: dict, auth_headers: dict):
+        """Test filtering statement by date range."""
+        from datetime import datetime, timedelta
+        
+        # Create transactions
+        deposit_data = {
+            "value": 100.0,
+            "transaction_type": "deposit",
+            "origin_account_number": test_account["account_number"]
+        }
+        await client.post("/transactions/", headers=auth_headers, json=deposit_data)
+        
+        # Set date range
+        initial_date = (datetime.utcnow() - timedelta(days=7)).strftime('%Y-%m-%d')
+        final_date = datetime.utcnow().strftime('%Y-%m-%d')
+        
+        response = await client.get(
+            f"/accounts/statements/me?account_number={test_account['account_number']}&initial_date={initial_date}&final_date={final_date}",
+            headers=auth_headers
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert "transactions" in data
+        
+        # Verify transactions are within date range
+        for txn in data["transactions"]:
+            txn_date = datetime.fromisoformat(txn["created_at"].replace('Z', '+00:00'))
+            start_date = datetime.fromisoformat(initial_date)
+            end_date = datetime.fromisoformat(final_date)
+            assert start_date.date() <= txn_date.date() <= end_date.date()
+    
+    async def test_get_statement_nonexistent_account(self, client: AsyncClient, auth_headers: dict):
+        """Test getting statement for non-existent account returns 404."""
+        fake_account_number = 99999999  # Valid int32 value
+        response = await client.get(
+            f"/accounts/statements/me?account_number={fake_account_number}",
+            headers=auth_headers
+        )
+        assert response.status_code == 404
+        assert "not found" in response.json()["detail"].lower()
+    
+    async def test_get_statement_other_users_account(self, client: AsyncClient, test_account: dict, admin_headers: dict):
+        """Test getting statement for account not owned by user returns 404."""
+        # Try to access test_account (owned by regular user) with admin credentials
+        # This should fail because the endpoint checks ownership
+        response = await client.get(
+            f"/accounts/statements/me?account_number={test_account['account_number']}",
+            headers=admin_headers
+        )
+        # Should return 404 since admin doesn't own this account
+        assert response.status_code == 404
+    
+    async def test_get_statement_without_auth(self, client: AsyncClient, test_account: dict):
+        """Test getting statement without authentication fails."""
+        response = await client.get(
+            f"/accounts/statements/me?account_number={test_account['account_number']}"
+        )
+        assert response.status_code == 401
+    
+    async def test_get_statement_missing_account_number(self, client: AsyncClient, auth_headers: dict):
+        """Test getting statement without account_number parameter fails."""
+        response = await client.get(
+            "/accounts/statements/me",
+            headers=auth_headers
+        )
+        assert response.status_code == 422
+    
+    async def test_get_statement_balance_accuracy(self, client: AsyncClient, test_account: dict, auth_headers: dict):
+        """Test that statement balance reflects account balance."""
+        response = await client.get(
+            f"/accounts/statements/me?account_number={test_account['account_number']}",
+            headers=auth_headers
+        )
+        assert response.status_code == 200
+        data = response.json()
+        
+        # Get account directly
+        accounts_response = await client.get("/accounts/me", headers=auth_headers)
+        accounts_data = accounts_response.json()
+        account = next(
+            (acc for acc in accounts_data["items"] if acc["account_number"] == test_account["account_number"]),
+            None
+        )
+        
+        if account:
+            assert data["balance"] == account["balance"]

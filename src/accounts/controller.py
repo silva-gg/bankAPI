@@ -20,7 +20,8 @@ from .schemas import (
     AccountIn,
     AccountOut,
     AccountUpdate,
-    AccountList
+    AccountList,
+    AccountStatement
 )
 from .models import AccountModel
 
@@ -151,6 +152,119 @@ async def get_all_my_accounts(
         for entity in entities
     ])
 
+@router.get(
+    '/statements/me',
+    summary='Bank Statement for Logged User\'s Account',
+    description='Returns the bank statement for a specified account owned by the logged-in user with filtered transactions',
+    status_code=status.HTTP_200_OK,
+    response_model=AccountStatement,
+)
+async def get_bank_statement(
+    db_session: DatabaseDependency,
+    current_user: CurrentUser,
+    account_number: int = Query(
+        ...,
+        description='Account number to retrieve the statement for',
+        example=1234567890
+    ),
+    initial_date: Optional[str] = Query(
+        None,
+        description='Filter transactions from this date (YYYY-MM-DD)',
+        example='2023-01-01'
+    ),
+    final_date: Optional[str] = Query(
+        None,
+        description='Filter transactions up to this date (YYYY-MM-DD)',
+        example='2023-12-31'
+    )
+) -> AccountStatement:
+    """
+    Get bank statement for a specific account owned by the logged-in user
+    
+    Args:
+        db_session: Database session (injected)
+        current_user: Current authenticated user (injected)
+        account_number: Account number to retrieve the statement for
+        initial_date: Optional start date filter (YYYY-MM-DD)
+        final_date: Optional end date filter (YYYY-MM-DD)
+        
+    Returns:
+        AccountStatement: Account details with balance and filtered transactions
+    """
+    from sqlalchemy import and_, or_
+    from src.transactions.models import TransactionModel
+    from src.transactions.schemas import TransactionSummary
+    
+    # Query for account by account number and owner
+    result = await db_session.execute(
+        select(AccountModel).filter_by(
+            account_number=account_number,
+            owner=current_user.uuid5
+        )
+    )
+    account = result.scalars().first()
+    
+    if not account:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f'Account with number {account_number} not found for the current user'
+        )
+    
+    # Build transaction query - get transactions where account is origin or destination
+    transaction_query = select(TransactionModel).filter(
+        or_(
+            TransactionModel.origin_account_number == account_number,
+            TransactionModel.destination_account_number == account_number
+        )
+    )
+    
+    # Apply date filters if provided
+    if initial_date:
+        initial_dt = datetime.fromisoformat(initial_date).replace(tzinfo=timezone.utc)
+        transaction_query = transaction_query.filter(
+            TransactionModel.created_at >= initial_dt
+        )
+    
+    if final_date:
+        # Set to end of day for final_date
+        final_dt = datetime.fromisoformat(final_date).replace(
+            hour=23, minute=59, second=59, microsecond=999999, tzinfo=timezone.utc
+        )
+        transaction_query = transaction_query.filter(
+            TransactionModel.created_at <= final_dt
+        )
+    
+    # Order by date (most recent first)
+    transaction_query = transaction_query.order_by(TransactionModel.created_at.desc())
+    
+    # Execute transaction query
+    transaction_result = await db_session.execute(transaction_query)
+    transactions = transaction_result.scalars().all()
+    
+    # Convert transactions to TransactionSummary with datetime conversion
+    transaction_summaries = []
+    for txn in transactions:
+        txn_dict = {
+            'pk_id': txn.id,
+            'value': txn.value,
+            'transaction_type': txn.transaction_type,
+            'created_at': txn.created_at.isoformat() if txn.created_at else None,
+            'origin_account_number': txn.origin_account_number,
+            'destination_account_number': txn.destination_account_number
+        }
+        transaction_summaries.append(TransactionSummary.model_validate(txn_dict))
+    
+    # Get balance from account model
+    balance = getattr(account, 'balance', 0.0)
+    
+    # Build AccountStatement response
+    statement_data = {
+        **AccountOut.model_validate(account).model_dump(),
+        'balance': balance,
+        'transactions': transaction_summaries
+    }
+    
+    return AccountStatement.model_validate(statement_data)
 
 @router.get(
     '/',
