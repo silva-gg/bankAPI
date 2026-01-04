@@ -62,7 +62,21 @@ class TransactionOut(Transaction, OutMixin):
     
     Used for API responses. Includes transaction details with timestamps.
     """
-    pass
+    origin_account_number: Annotated[
+        int,
+        Field(
+            description='Account number associated with the transaction',
+            example=1234567890
+        )
+    ]
+    destination_account_number: Annotated[
+        Optional[int],
+        Field(
+            None,
+            description='Destination account number for transfers (optional)',
+            example=9876543210
+        )
+    ]
 
 
 class TransactionList(BaseSchema):

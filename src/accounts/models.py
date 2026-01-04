@@ -100,8 +100,15 @@ class AccountModel(BaseModel):
         comment='Amount already used from special withdrawal limit'
     )
 
-    transactions: Mapped[list['TransactionModel']] = relationship(
-        back_populates="account",
+    outgoing_transactions: Mapped[list['TransactionModel']] = relationship(
+        foreign_keys='TransactionModel.origin_account_number',
+        back_populates="origin_account",
+        lazy='selectin'
+    )
+    
+    incoming_transactions: Mapped[list['TransactionModel']] = relationship(
+        foreign_keys='TransactionModel.destination_account_number',
+        back_populates="destination_account",
         lazy='selectin'
     )
 
