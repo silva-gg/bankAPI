@@ -16,6 +16,19 @@ This is a simplified banking API that demonstrates:
 - **Security** - Password hashing with Argon2, JWT authentication, and account-level passwords
 - **Limits & Controls** - Daily withdrawal limits and special withdrawal features
 
+### 🐍 Python Coding Challenges
+
+This repository also includes 6 fundamental Python programming challenges with comprehensive tests:
+
+- **Desafio 1:** Concatenando Dados (String concatenation)
+- **Desafio 2:** Repetindo Textos (String repetition)
+- **Desafio 3:** Operações Matemáticas (Math operations)
+- **Desafio 4:** Par e Ímpar (Even/odd checker)
+- **Desafio 5:** Média de Notas (Grade average)
+- **Desafio 6:** Palíndromos (Palindrome checker)
+
+📖 See [DESAFIOS_IMPLEMENTACAO.md](DESAFIOS_IMPLEMENTACAO.md) for complete documentation and [resolucoes_code/README.md](resolucoes_code/README.md) for usage examples.
+
 ## 📋 Table of Contents
 
 - [Features](#-features)
