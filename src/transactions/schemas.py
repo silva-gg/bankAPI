@@ -99,3 +99,32 @@ class TransactionList(BaseSchema):
             example=1234567890
         )
     ]
+
+class TransactionSummary(BaseSchema):
+    """
+    Summary Schema for Transactions in Account Statements
+    
+    Used within AccountStatement to summarize transactions.
+    """
+    pk_id: Annotated[UUID4, Field(description='Unique transaction identifier')]
+    value: Annotated[float, Field(description='Transaction value')]
+    transaction_type: Annotated[TransactionType, Field(description='Type of transaction')]
+    created_at: Annotated[
+        str,
+        Field(description='Timestamp when the transaction was created')
+    ]
+    origin_account_number: Annotated[
+        int,
+        Field(
+            description='Account number associated with the transaction',
+            example=1234567890
+        )
+    ]
+    destination_account_number: Annotated[
+        Optional[int],
+        Field(
+            None,
+            description='Destination account number for transfers (optional)',
+            example=9876543210
+        )
+    ]

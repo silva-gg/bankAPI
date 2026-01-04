@@ -10,7 +10,7 @@ from pydantic import UUID5, Field, PositiveFloat, constr
 from src.users.schemas import UserOut
 from src.contrib.schemas import BaseSchema, OutMixin
 from src.contrib.schemas import AccountType
-
+from src.transactions.schemas import TransactionSummary
 
 class Account(BaseSchema):
     """
@@ -159,3 +159,25 @@ class AccountList(BaseSchema):
             example=1500.75
         )
     ]
+
+class AccountStatement(AccountOut):
+    """
+    Schema for Account Statement
+    
+    Extends AccountOut to include transaction history and current balance.
+    """
+    balance: Annotated[
+        float,
+        Field(
+            description='Current balance of the account',
+            example=1500.75
+        )
+    ]
+    
+    transactions: Annotated[
+        list['TransactionSummary'],
+        Field(
+            description='List of transactions associated with the account'
+        )
+    ]
+
